@@ -12,8 +12,9 @@ export async function generateStaticParams() {
   return [];
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const payee = defaultState.payees.find(p => p.id === params.id);
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const payee = defaultState.payees.find(p => p.id === id);
   const title = payee ? `${payee.nickname || payee.name} | PNB eBank` : 'Beneficiary Details | PNB eBank';
   return {
     title,
@@ -21,8 +22,9 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   };
 }
 
-export default function BeneficiaryDetailsPage({ params }: { params: { id: string } }) {
+export default async function BeneficiaryDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   // The server component renders the client component, passing the ID.
   // The client component will fetch the rest of the data from the global state.
-  return <BeneficiaryDetailsClient payeeId={params.id} />;
+  return <BeneficiaryDetailsClient payeeId={id} />;
 }
