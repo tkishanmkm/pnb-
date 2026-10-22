@@ -355,7 +355,7 @@ function DashboardPageComponent() {
             {bottomNavItems.map((item) => {
               if (item.isCentral) {
                 return (
-                  <Link href={item.href} key={item.label} className="relative -top-5 text-center">
+                  <Link href={item.href || "#"} key={item.label} className="relative -top-5 text-center">
                     <div className="bg-primary rounded-full p-3.5 shadow-lg border-4 border-card">
                       <DynamicIcon iconKey={item.iconKey} fallback={item.defaultIcon} className="h-7 w-7 text-primary-foreground" />
                     </div>
@@ -365,7 +365,7 @@ function DashboardPageComponent() {
               }
 
               return (
-                <Link key={item.label} href={item.href} className="flex-1">
+                <Link key={item.label} href={item.href || "#"} className="flex-1">
                   <div className="flex flex-col items-center justify-center gap-1 text-primary">
                      <DynamicIcon iconKey={item.iconKey} fallback={item.defaultIcon} className="h-5 w-5" />
                     <span className="text-[11px] font-medium">{item.label}</span>
