@@ -161,7 +161,7 @@ export default function LoginPage() {
                 {pin.map((digit, index) => (
                     <div key={index} className="w-10 h-10 flex flex-col items-center justify-center">
                          <input
-                            ref={el => pinInputsRef.current[index] = el}
+                            ref={el => { pinInputsRef.current[index] = el; }}
                             type="password"
                             maxLength={1}
                             value={digit}
