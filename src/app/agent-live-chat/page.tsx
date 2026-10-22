@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { useAppContext } from '@/hooks/use-app-store';
 import { useToast } from '@/hooks/use-toast';
 import { agentChat } from '@/ai/flows/agent-chat-flow';
+import type { ChatMessage } from '@/lib/types';
 import type { MessageData } from 'genkit';
 
 type Message = {
@@ -117,9 +118,9 @@ function AgentLiveChatContent() {
     // Prevent saving on initial load if messages are just being populated from history
     if (messages.length === 0 && state.chatHistory.length > 0) return;
 
-    const newHistory = messages.map(msg => ({
+    const newHistory: ChatMessage[] = messages.map(msg => ({
         id: msg.id,
-        sender: msg.role === 'model' ? 'agent' : msg.role,
+        sender: msg.role === 'model' ? 'agent' : msg.role === 'system' ? 'system' : 'user',
         content: msg.text,
         timestamp: msg.timestamp,
     }));
