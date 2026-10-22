@@ -55,7 +55,7 @@ export default function ConfirmTransferPage() {
     // Simulate API call
     setTimeout(() => {
         const newTransaction = {
-            type: 'debit' as 'debit',
+            type: 'debit' as const,
             amount: -transferAmount,
             description: `Fund Transfer to ${payee.name}`,
             date: new Date().toISOString(),
