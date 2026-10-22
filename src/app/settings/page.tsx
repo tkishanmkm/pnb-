@@ -690,14 +690,18 @@ const DataManagement = () => {
                     <CardTitle>PDF Security</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                        Password-protected PDF export is not available in the current PDF engine. Leave this blank to export statements. If a password was imported from an older backup, clear it before exporting.
+                    </p>
                     <div className="space-y-2">
-                        <Label htmlFor="pdfPassword">PDF Statement Password</Label>
+                        <Label htmlFor="pdfPassword">PDF Statement Password (unsupported)</Label>
                         <Input
                             id="pdfPassword"
-                            type="text"
+                            type="password"
+                            autoComplete="new-password"
                             value={settings.pdfPassword || ''}
                             onChange={(e) => setSettings({ ...settings, pdfPassword: e.target.value })}
-                            placeholder="Leave blank for no password"
+                            placeholder="Leave blank"
                         />
                     </div>
                     <Button onClick={handleSaveSecurity} className="w-full">Save Security Settings</Button>
