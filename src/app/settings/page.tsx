@@ -261,7 +261,7 @@ const PayeeSettings = () => {
         setPayees(ps => [...ps, newPayee]);
     };
 
-    const handleUpdate = (id: string, field: keyof Payee, value: any) => {
+    const handleUpdate = (id: string, field: keyof Payee, value: string) => {
         setPayees(payees.map(p => p.id === id ? { ...p, [field]: value } : p));
     };
 
@@ -420,7 +420,7 @@ const ChatHistorySettings = () => {
         setHistory(h => [...h, newMsg]);
     };
 
-    const handleUpdate = (id: string, field: keyof ChatMessage, value: any) => {
+    const handleUpdate = (id: string, field: keyof ChatMessage, value: string) => {
         setHistory(history.map(h => h.id === id ? { ...h, [field]: value } : h));
     };
 
@@ -657,9 +657,11 @@ const DataManagement = () => {
                     // Update storage estimate
                     const estimate = await getStorageEstimate();
                     setStorageInfo(prev => ({ ...prev, ...estimate }));
-                } catch (error: any) {
+                } catch (error: unknown) {
                     console.error("Failed to parse or save imported JSON:", error);
-                    const isQuota = error?.name === 'QuotaExceededError' || error?.code === 22;
+                    const errorName = error instanceof Error ? error.name : '';
+                    const errorCode = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+                    const isQuota = errorName === 'QuotaExceededError' || errorCode === 22;
                     toast({ 
                         variant: 'destructive', 
                         title: "Import Error", 
@@ -988,7 +990,7 @@ const PdfExtraction = () => {
                         {statementAccountNumber && matchedAccountId ? (
                             <p>Statement account verified against a saved account. Transactions will be added only to that account.</p>
                         ) : (
-                            <p className="text-destructive">Account not verified: this statement/JSON does not match a saved account. Saving is disabled to prevent mixing different customers' transactions.</p>
+                            <p className="text-destructive">Account not verified: this statement/JSON does not match a saved account. Saving is disabled to prevent mixing different customers&apos; transactions.</p>
                         )}
                         {statementAccountNumber && <p className="text-muted-foreground mt-1">Statement account ending in {statementAccountNumber.slice(-4)}.</p>}
                     </div>
