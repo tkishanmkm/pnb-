@@ -49,6 +49,16 @@ const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => 
 
         let yPos = 47;
         const detailHeight = 6;
+        const valueX = margin + 38;
+        const valueWidth = pageWidth - margin - valueX;
+        const drawDetailRows = (rows: Array<[string, string]>) => {
+            rows.forEach(([label, value]) => {
+                doc.text(label, margin, yPos);
+                const wrappedValue = doc.splitTextToSize(value || '', valueWidth);
+                doc.text(wrappedValue, valueX, yPos);
+                yPos += detailHeight * Math.max(1, wrappedValue.length);
+            });
+        };
 
         doc.setFont('times', 'bold');
         doc.setFontSize(11);
@@ -57,22 +67,16 @@ const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => 
 
         doc.setFont('times', 'normal');
         doc.setFontSize(11);
-        const branchDetails = [
-            `Branch Name:        ${account.branchName || ''}`,
-            `Branch Address:    ${account.branchAddress || ''}`,
-            `City:                       ${account.branchCity || ''}`,
-            `Pin:                         ${account.branchPin || ''}`,
-            `IFSC Code:            ${account.ifsc || ''}`,
-            `MICR Code:            ${account.micrCode || ''}`
-        ];
+        drawDetailRows([
+            ['Branch Name:', account.branchName || ''],
+            ['Branch Address:', account.branchAddress || ''],
+            ['City:', account.branchCity || ''],
+            ['Pin:', account.branchPin || ''],
+            ['IFSC Code:', account.ifsc || ''],
+            ['MICR Code:', account.micrCode || ''],
+        ]);
 
-        branchDetails.forEach(line => {
-            doc.text(line, margin, yPos);
-            yPos += detailHeight;
-        });
-        
-        yPos += detailHeight * 3;
-
+        yPos += detailHeight * 2;
         doc.setFont('times', 'bold');
         doc.setFontSize(11);
         doc.text('Customer Details:', margin, yPos);
@@ -80,25 +84,20 @@ const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => 
 
         doc.setFont('times', 'normal');
         doc.setFontSize(11);
-        const customerDetails = [
-            `Customer Name:      ${account.accountHolder || ''}`,
-            `Customer Address:  ${account.customerAddress || ''}`,
-            `City:                         ${account.customerCity || ''}`,
-            `Pin:                           ${account.customerPin || ''}`,
-            `CKYC Number:        ${account.ckycNumber || ''}`,
-            `Nominee:                  ${account.nominee || 'N/A'}`
-        ];
+        drawDetailRows([
+            ['Customer Name:', account.accountHolder || ''],
+            ['Customer Address:', account.customerAddress || ''],
+            ['City:', account.customerCity || ''],
+            ['Pin:', account.customerPin || ''],
+            ['Customer ID:', account.customerId || ''],
+            ['CKYC Number:', account.ckycNumber || ''],
+            ['Nominee:', account.nominee || 'N/A'],
+        ]);
 
-        customerDetails.forEach(line => {
-            doc.text(line, margin, yPos);
-            yPos += detailHeight;
-        });
-        
         yPos += detailHeight * 2;
-
         doc.setFont('times', 'bold');
         doc.setFontSize(11);
-        const summaryLine = `Statement of Account: ${account.accountNumber} For Period: ${format(period.from, 'dd/MM/yyyy')} to ${format(period.to, 'dd/MM/yyyy')}`;
+        const summaryLine = 'Statement of Account: ' + account.accountNumber + ' For Period: ' + format(period.from, 'dd/MM/yyyy') + ' to ' + format(period.to, 'dd/MM/yyyy');
         doc.text(summaryLine, margin, yPos);
 
         finalYPos = yPos + (detailHeight * 2);
