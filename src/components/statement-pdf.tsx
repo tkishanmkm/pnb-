@@ -152,7 +152,7 @@ const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => 
     addHeader();
     renderTable([...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), finalYPos);
     
-    let finalPdfBytes: Uint8Array = doc.output('arraybuffer');
+    let finalPdfBytes: Uint8Array = new Uint8Array(doc.output('arraybuffer'));
 
     if (lastPagePdfDataUri) {
         try {
