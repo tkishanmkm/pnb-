@@ -806,7 +806,7 @@ const PdfExtraction = () => {
     const [statementAccountNumber, setStatementAccountNumber] = useState<string | null>(null);
     const [matchedAccountId, setMatchedAccountId] = useState<string | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
-    const normalizeAccountNumber = (value: string | null | undefined) => (value || '').replace(/\\D/g, '');
+    const normalizeAccountNumber = (value: string | null | undefined) => (value || '').replace(/\D/g, '');
     const findMatchingAccountId = (accountNumber: string | null | undefined) => {
         const normalized = normalizeAccountNumber(accountNumber);
         if (!normalized) return null;
