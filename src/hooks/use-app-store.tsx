@@ -32,7 +32,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
       const newTransaction: Transaction = {
           ...action.payload,
           id: action.payload.id || `txn-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-          accountId: state.accounts[0].id,
+          accountId: state.accounts[0]?.id ?? 'unknown',
       };
       const filteredTransactions = state.transactions.filter(tx => tx.id !== newTransaction.id);
       
