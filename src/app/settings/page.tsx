@@ -21,6 +21,27 @@ import { Suspense } from 'react';
 import { saveStateToIndexedDB, getStorageEstimate, requestPersistentStorage } from '@/lib/indexeddb';
 import { defaultState } from '@/lib/mock-data';
 
+const normalizeImageDataUrls = (value: unknown): unknown => {
+    if (typeof value === 'string') {
+        const match = value.match(/^data:image\/([^;,]+);base64,([A-Za-z0-9+/=\s]+)$/i);
+        if (!match) return value;
+        const payload = match[2].replace(/\s/g, '');
+        let actualType: string | null = null;
+        if (payload.startsWith('iVBORw0KGgo')) actualType = 'png';
+        else if (payload.startsWith('/9j/')) actualType = 'jpeg';
+        else if (payload.startsWith('R0lGOD')) actualType = 'gif';
+        else if (payload.startsWith('UklGR')) actualType = 'webp';
+        if (!actualType || match[1].toLowerCase() === actualType) return value;
+        return `data:image/${actualType};base64,${payload}`;
+    }
+    if (Array.isArray(value)) return value.map(normalizeImageDataUrls);
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+            .map(([key, item]) => [key, normalizeImageDataUrls(item)]));
+    }
+    return value;
+};
+
 const AccountSettings = () => {
     const { state, dispatch } = useAppContext();
     const { toast } = useToast();
@@ -528,7 +549,8 @@ const DataManagement = () => {
                         throw new Error("Invalid JSON structure.");
                     }
 
-                    const source = parsedState as Partial<AppState> & {
+                    const normalizedParsedState = normalizeImageDataUrls(parsedState);
+                    const source = normalizedParsedState as Partial<AppState> & {
                         carouselBanners?: CarouselBanner[];
                     };
                     if (!source.user || typeof source.user !== 'object') {
@@ -554,6 +576,9 @@ const DataManagement = () => {
                         };
                     });
                     const accountIds = new Set(accounts.map(account => account.id));
+                    if (accountIds.size !== accounts.length) {
+                        throw new Error('JSON backup contains duplicate account IDs.');
+                    }
                     const fallbackAccountId = accounts[0].id;
 
                     const transactions = source.transactions.map((transaction, index) => {
@@ -585,6 +610,11 @@ const DataManagement = () => {
                             type,
                         };
                     });
+
+                    const transactionIds = new Set(transactions.map(transaction => transaction.id));
+                    if (transactionIds.size !== transactions.length) {
+                        throw new Error('JSON backup contains duplicate transaction IDs.');
+                    }
 
                     const importedState: AppState = {
                         ...defaultState,
