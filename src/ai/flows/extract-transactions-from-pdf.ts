@@ -3,7 +3,9 @@ import type { Transaction } from '@/lib/types';
 
 // Browser-side PDF text extraction. No AI model or server API is used.
 // Scanned/image-only PDFs need OCR, which is not implemented in this parser.
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = typeof window === 'undefined'
+  ? new URL('../../../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs', import.meta.url).toString()
+  : new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
 const DATE_PATTERN = /^(\d{2}[/-]\d{2}[/-]\d{4}|\d{4}[/-]\d{2}[/-]\d{2})$/;
 const AMOUNT_PATTERN = /^\(?-?\d[\d,]*(?:\.\d{1,2})?\)?$/;
