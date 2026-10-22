@@ -16,6 +16,7 @@ import SideNav from '@/components/side-nav';
 import { PNBLogo } from '@/components/pnb-logo';
 import { RupeeIcon } from "@/components/rupee-icon";
 import DynamicIcon from "@/components/dynamic-icon";
+import type { IconAssets } from "@/lib/types";
 
 
 const UPIIcon = () => (
@@ -36,7 +37,17 @@ const PMVishwakarmaIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" 
 const KrishiTatkalIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.20182 18.3223L9.56952 4.13303C10.3621 2.65162 12.4842 2.5591 13.401 4.0041L21.3197 16.591C22.2359 18.0352 21.2023 19.9999 19.5165 19.9999H4.15347C2.55393 19.9999 1.4553 18.1565 2.20182 18.3223Z" stroke="#4CAF50" strokeWidth="1.5"/><path d="M12 8L12 15" stroke="#4CAF50" strokeWidth="1.5" strokeLinecap="round" /><path d="M10 11H14" stroke="#4CAF50" strokeWidth="1.5" strokeLinecap="round" /></svg>;
 
 
-const popularItems = [
+type DynamicIconItem = {
+    iconKey: keyof IconAssets;
+    defaultIcon: React.ComponentType<any>;
+    label: string;
+    href?: string;
+    tag?: string;
+    highlighted?: boolean;
+    isCentral?: boolean;
+};
+
+const popularItems: DynamicIconItem[] = [
     { iconKey: 'mpassbook', defaultIcon: BookOpen, label: "mPassbook", href: "/account-statement" },
     { iconKey: 'otherBank', defaultIcon: UserPlus, label: "Other Bank", href: "#" },
     { iconKey: 'creditCard', defaultIcon: CreditCard, label: "Credit Card", href: "#" },
@@ -44,7 +55,7 @@ const popularItems = [
     { iconKey: 'digiHome', defaultIcon: Home, label: "Digi Home", href: "#" },
 ];
 
-const payTransferItems = [
+const payTransferItems: DynamicIconItem[] = [
     { iconKey: 'fundTransfer', defaultIcon: Send, label: "Fund Transfer", href: "/fund-transfer" },
     { iconKey: 'upi', defaultIcon: UPIIcon, label: "UPI", href: "#" },
     { iconKey: 'approveToPay', defaultIcon: CheckCircle2, label: "Approve to Pay", href: "#" },
@@ -55,7 +66,7 @@ const payTransferItems = [
     { iconKey: 'cardlessCash', defaultIcon: HandCoins, label: "Cardless Cash", href: "#" },
 ];
 
-const digitalLoans = [
+const digitalLoans: DynamicIconItem[] = [
     { iconKey: 'msmeLoan', defaultIcon: Briefcase, label: "Digi MSME Loan"},
     { iconKey: 'krishiTatkalRin', defaultIcon: KrishiTatkalIcon, label: "Krishi Tatkal Rin", highlighted: true},
     { iconKey: 'digitalKcc', defaultIcon: Tractor, label: "Digital KCC"},
@@ -70,7 +81,7 @@ const digitalLoans = [
     { iconKey: 'kccRenewal', defaultIcon: RefreshCw, label: "KCC Renewal/ Review & DP Enhancement"},
 ];
 
-const investApplyItems = [
+const investApplyItems: DynamicIconItem[] = [
     { iconKey: 'mutualFunds', defaultIcon: TrendingUp, label: "Online Mutual Funds"},
     { iconKey: 'ppf', defaultIcon: Landmark, label: "PPF"},
     { iconKey: 'applyOnline', defaultIcon: FileCheck, label: "Apply Online"},
@@ -107,7 +118,7 @@ const EmergencyIcon = () => (
 );
 
 
-const bottomNavItems = [
+const bottomNavItems: DynamicIconItem[] = [
   { iconKey: 'services', defaultIcon: ServicesIcon, href: '/dashboard', label: 'Services' },
   { iconKey: 'myRewards', defaultIcon: MyRewardsIcon, href: '#', label: 'My Rewards' },
   { iconKey: 'scan', defaultIcon: QrCode, href: '#', label: 'Scan', isCentral: true },
