@@ -175,7 +175,7 @@ export type Action =
   | { type: 'LOGOUT_COMPLETE' }
   | { type: 'SET_TRANSFER_DETAILS'; payload: Partial<TransferDetails> }
   | { type: 'CLEAR_TRANSFER' }
-  | { type: 'ADD_TRANSACTION'; payload: Omit<Transaction, 'id' | 'accountId'> }
+  | { type: 'ADD_TRANSACTION'; payload: Omit<Transaction, 'id' | 'accountId'> & Partial<Pick<Transaction, 'id' | 'accountId'>> }
   | { type: 'UPDATE_TRANSACTION'; payload: UpdateTransactionPayload }
   | { type: 'UPDATE_USER'; payload: Partial<User> }
   | { type: 'UPDATE_ACCOUNT'; payload: AccountDetails }
