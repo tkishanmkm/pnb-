@@ -1,3 +1,5 @@
+import type { AppState } from '@/lib/types';
+
 const DB_NAME = 'pnb_pro_db';
 const STORE_NAME = 'app_state';
 const STATE_KEY = 'current_state';
@@ -41,7 +43,7 @@ export function saveStateToIndexedDB(state: unknown): Promise<void> {
   return write;
 }
 
-export async function getStateFromIndexedDB(): Promise<any | null> {
+export async function getStateFromIndexedDB(): Promise<AppState | null> {
   const db = await openDB();
   try {
     return await new Promise((resolve, reject) => {
