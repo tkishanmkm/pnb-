@@ -59,7 +59,11 @@ export function StatementContent() {
         const fromDate = startOfDay(parseISO(from));
         const toDate = new Date(parseISO(to).setHours(23, 59, 59, 999));
 
-        const allTransactionsSortedAsc = [...state.transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        // A statement must contain only transactions belonging to the account being exported.
+        const account = state.accounts[0];
+        const allTransactionsSortedAsc = state.transactions
+            .filter(tx => tx.accountId === account.id)
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         
         const openingBalance = allTransactionsSortedAsc
             .filter(tx => new Date(tx.date) < fromDate)

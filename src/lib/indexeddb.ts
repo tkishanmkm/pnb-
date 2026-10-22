@@ -10,8 +10,13 @@ export async function openDB(): Promise<IDBDatabase> {
       return reject(new Error('IndexedDB is not supported in this environment.'));
     }
     const request = indexedDB.open(DB_NAME, 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error('Could not open IndexedDB.'));
+    request.onblocked = () => reject(new Error('IndexedDB upgrade is blocked by another open tab. Close other PNB tabs and try again.'));
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => db.close();
+      resolve(db);
+    };
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
@@ -59,18 +64,21 @@ export async function getStateFromIndexedDB(): Promise<AppState | null> {
 }
 
 export async function clearStateFromIndexedDB(): Promise<void> {
+  let db: IDBDatabase | undefined;
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.delete(STATE_KEY);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+    db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db!.transaction(STORE_NAME, 'readwrite');
+      transaction.objectStore(STORE_NAME).delete(STATE_KEY);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error('IndexedDB delete failed.'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB delete aborted.'));
     });
   } catch (error) {
-    console.error("IndexedDB delete error:", error);
+    console.error('IndexedDB delete error:', error);
     throw error;
+  } finally {
+    db?.close();
   }
 }
 

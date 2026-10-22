@@ -156,7 +156,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             parsedState.loginPending = false;
             parsedState.isLoggingOut = false;
             dispatch({ type: 'INITIALIZE_STATE', payload: parsedState });
-            await saveStateToIndexedDB(parsedState);
+            // Keep recovered localStorage data even when Safari refuses IndexedDB access.
+            try {
+              await saveStateToIndexedDB(parsedState);
+            } catch (indexedDbError) {
+              console.warn('Recovered app state from localStorage; IndexedDB remains unavailable.', indexedDbError);
+            }
           } else {
             dispatch({ type: 'INITIALIZE_STATE', payload: defaultState });
             await saveStateToIndexedDB(defaultState);

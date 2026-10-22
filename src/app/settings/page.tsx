@@ -869,13 +869,25 @@ const PdfExtraction = () => {
                         extractTransactionsFromPdf(dataUri),
                     ]);
                     const destinationAccountId = findMatchingAccountId(accountNumber);
-                    const uniqueResults = results.filter(newTx =>
-                        !state.transactions.some(existingTx =>
-                            existingTx.accountId === destinationAccountId &&
-                            ((Boolean(existingTx.reference) && Boolean(newTx.reference) && existingTx.reference === newTx.reference) ||
-                            (existingTx.date.slice(0, 10) === newTx.date.slice(0, 10) && Math.abs(existingTx.amount) === Math.abs(newTx.amount) && existingTx.description.trim().toLowerCase() === newTx.description.trim().toLowerCase()))
-                        )
-                    ).map(transaction => ({ ...transaction, accountId: destinationAccountId || 'unmatched' }));
+                    // Match existing transactions one-for-one so repeated legitimate payments are preserved.
+                    const alreadyMatched = new Set<number>();
+                    const uniqueResults = results.filter(newTx => {
+                        if (!destinationAccountId) return true;
+                        const matchIndex = state.transactions.findIndex((existingTx, index) => {
+                            if (alreadyMatched.has(index) || existingTx.accountId !== destinationAccountId) return false;
+                            const sameReference = Boolean(existingTx.reference && newTx.reference) &&
+                                existingTx.reference?.trim().toLowerCase() === newTx.reference?.trim().toLowerCase();
+                            const sameDetails = existingTx.date.slice(0, 10) === newTx.date.slice(0, 10) &&
+                                Math.abs(existingTx.amount) === Math.abs(newTx.amount) &&
+                                existingTx.description.trim().toLowerCase() === newTx.description.trim().toLowerCase();
+                            return sameReference || sameDetails;
+                        });
+                        if (matchIndex >= 0) {
+                            alreadyMatched.add(matchIndex);
+                            return false;
+                        }
+                        return true;
+                    }).map(transaction => ({ ...transaction, accountId: destinationAccountId || 'unmatched' }));
                     setStatementAccountNumber(accountNumber);
                     setMatchedAccountId(destinationAccountId);
                     setPreviewData(uniqueResults);
@@ -893,6 +905,10 @@ const PdfExtraction = () => {
                     setIsExtracting(false);
                     toast({ variant: 'destructive', title: "Error", description: "Failed to extract transactions." });
                 }
+            };
+            reader.onerror = () => {
+                setIsExtracting(false);
+                toast({ variant: 'destructive', title: 'File read failed', description: 'Safari could not read this PDF. Try saving it to Files and selecting it again.' });
             };
             reader.readAsDataURL(file);
         } catch (error) {
