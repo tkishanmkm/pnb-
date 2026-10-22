@@ -103,7 +103,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
     }
     case 'RESET_STATE': {
         clearStateFromIndexedDB().catch(err => console.error("Failed to clear IndexedDB on reset", err));
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
+        try { window.localStorage.removeItem(LOCAL_STORAGE_KEY); } catch (error) { console.warn('Could not clear localStorage.', error); }
         const newState = {...defaultState, isAuthenticated: state.isAuthenticated, isStateInitialized: true, loginPending: false};
         saveStateToIndexedDB(newState).catch(err => console.error("Failed to save default state to IndexedDB on reset", err));
         return newState;
@@ -122,7 +122,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let isMounted = true;
     async function initializeApp() {
       try {
-        const idbState = await getStateFromIndexedDB();
+        let idbState: AppState | null = null;
+        try {
+          idbState = await getStateFromIndexedDB();
+        } catch (storageError) {
+          // Safari private browsing or restrictive storage settings may reject IndexedDB.
+          console.warn('IndexedDB unavailable; trying localStorage fallback.', storageError);
+        }
         if (!isMounted) return;
 
         if (idbState) {
@@ -132,7 +138,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           dispatch({ type: 'INITIALIZE_STATE', payload: idbState });
         } else {
           // Check localStorage as fallback if IDB is empty
-          const storedState = localStorage.getItem(LOCAL_STORAGE_KEY);
+          let storedState: string | null = null;
+          try {
+            storedState = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+          } catch (storageError) {
+            console.warn('localStorage unavailable in this browser session.', storageError);
+          }
           if (storedState) {
             const parsedState: AppState = JSON.parse(storedState);
             parsedState.settings = { ...defaultState.settings, ...parsedState.settings };
@@ -166,7 +177,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           saveStateToIndexedDB(stateToSave).catch(err => {
             console.error("Failed to persist state update to IndexedDB", err);
           });
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
+          try {
+            window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
+          } catch (storageError) {
+            // Keep the app usable when Safari blocks localStorage; IndexedDB remains primary.
+            console.warn('Could not persist localStorage fallback.', storageError);
+          }
         } catch (error) {
           console.error("Failed to save state to localStorage", error);
         }
