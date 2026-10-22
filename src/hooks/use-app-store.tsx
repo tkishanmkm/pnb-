@@ -79,6 +79,20 @@ const appReducer = (state: AppState, action: Action): AppState => {
         saveStateToIndexedDB(newState).catch(err => console.error("Failed to save state to IndexedDB after updating account", err));
         return newState;
     }
+    case 'REPLACE_STATEMENT_DATA': {
+        const { account, transactions } = action.payload;
+        const newState: AppState = {
+            ...state,
+            accounts: [account],
+            transactions: transactions.map(tx => ({ ...tx, accountId: account.id })),
+            user: { ...state.user, name: account.accountHolder, accounts: [account] },
+            payees: [],
+            chatHistory: [],
+            currentTransfer: {},
+        };
+        saveStateToIndexedDB(newState).catch(err => console.error("Failed to persist replacement statement data", err));
+        return newState;
+    }
     case 'UPDATE_TRANSACTIONS': {
         const newState = {...state, transactions: action.payload};
         saveStateToIndexedDB(newState).catch(err => console.error("Failed to save state to IndexedDB after updating transactions", err));

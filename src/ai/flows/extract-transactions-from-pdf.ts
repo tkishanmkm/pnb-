@@ -68,6 +68,10 @@ export interface ExtractedStatementDetails {
   branchCity: string;
   branchPin: string;
   ifsc: string;
+  micrCode: string;
+  customerId: string;
+  ckycNumber: string;
+  nominee: string;
   accountType: 'Savings' | 'Current';
   closingBalance: number | null;
 }
@@ -77,39 +81,92 @@ export async function extractStatementDetailsFromPdf(pdfDataUri: string): Promis
   const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
   const pdfjsLib = await loadPdfJs();
   const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-  const pageTexts: string[] = [];
+  const lines: string[] = [];
+  const allRows: Array<{ page: number; y: number; cells: Array<{ text: string; x: number; y: number }> }> = [];
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
-    pageTexts.push(content.items.map(item => 'str' in item && typeof item.str === 'string' ? item.str : '').join(' '));
+    const items = content.items
+      .map(item => {
+        if (!('str' in item) || typeof item.str !== 'string' || !('transform' in item) || !Array.isArray(item.transform)) return null;
+        const transform = item.transform as number[];
+        return { text: item.str.trim(), x: transform[4] ?? 0, y: transform[5] ?? 0 };
+      })
+      .filter((item): item is { text: string; x: number; y: number } => Boolean(item && item.text));
+    const rows: Array<{ y: number; cells: Array<{ text: string; x: number; y: number }> }> = [];
+    for (const item of items) {
+      let row = rows.find(candidate => Math.abs(candidate.y - item.y) <= 2);
+      if (!row) { row = { y: item.y, cells: [] }; rows.push(row); }
+      row.cells.push(item);
+    }
+    rows.sort((a, b) => b.y - a.y).forEach(row => {
+      const sortedCells = row.cells.sort((a, b) => a.x - b.x);
+      const line = sortedCells.map(cell => cell.text).join(' ').replace(/\s+/g, ' ').trim();
+      if (line) lines.push(line);
+      allRows.push({ page: pageNumber, y: row.y, cells: sortedCells.map(cell => ({ text: cell.text, x: cell.x, y: cell.y })) });
+    });
   }
-  const text = pageTexts.join('\n');
-  const accountMatch = text.match(/(?:Statement\s+of\s+Account|Account\s+(?:Number|No\.?))\s*:?\s*([0-9][0-9\s-]{5,})/i);
-  const get = (labels: string[]) => {
-    for (const label of labels) {
-      const escaped = label.replace(/[.*+?^()|[\]\\]/g, '\\$&');
-      const match = text.match(new RegExp(escaped + '\\s*[:\\-]?\\s*([^\\n]{2,100})', 'i'));
-      if (match && match[1]) return match[1].trim().replace(/\s{2,}/g, ' ');
+  const text = lines.join('\n');
+  const branchStartIndex = lines.findIndex(line => /branch details/i.test(line));
+  const branchStart = Math.max(0, branchStartIndex);
+  const customerStart = lines.findIndex(line => /customer details/i.test(line));
+  const statementStart = lines.findIndex(line => /statement of account/i.test(line));
+  const get = (labels: string[], section: 'branch' | 'customer' | 'all' = 'all') => {
+    const from = section === 'branch' ? branchStart : section === 'customer' && customerStart >= 0 ? customerStart : 0;
+    const to = section === 'branch' && customerStart > from ? customerStart : section === 'customer' && statementStart > from ? statementStart : lines.length;
+    for (const line of lines.slice(from, to)) {
+      for (const label of labels) {
+        const escaped = label.replace(/[.*+?^()|[\]\\]/g, '\\$&');
+        const match = line.match(new RegExp('(?:^|\\s)' + escaped + '\\s*[:\\-]?\\s*(.*?)\\s*$', 'i'));
+        if (match && match[1] && match[1].trim()) {
+          const value = match[1].trim().replace(/\s{2,}/g, ' ');
+          if (!/^(?:branch details|customer details|statement of account)$/i.test(value)) return value;
+        }
+      }
     }
     return '';
   };
-  const pinMatch = text.match(/(?:PIN\s*(?:Code)?|Postal\s+Code)\s*[:\-]?\s*(\d{6})/i);
-  const branchPinMatch = text.match(/Branch[\s\S]{0,160}?(?:PIN|Postal\s+Code)\s*[:\-]?\s*(\d{6})/i);
-  const ifscMatch = text.match(/\bIFSC\s*(?:Code)?\s*[:\-]?\s*([A-Z]{4}0[A-Z0-9]{6})\b/i);
-  const balanceMatch = text.match(/(?:closing|available|ledger)\s+balance(?:\s+as\s+on\s+[^:\n]+)?\s*[:\-]?\s*(?:INR|Rs\.?|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i)
+  const accountMatch = text.match(/(?:Statement\s+of\s+Account|Account\s+(?:Number|No\.?))\s*:?\s*([0-9][0-9\s-]{5,})/i);
+  const customerPin = get(['Pin', 'PIN Code', 'Pin Code'], 'customer').match(/\d{6}/);
+  const branchPin = get(['Pin', 'PIN Code', 'Pin Code'], 'branch').match(/\d{6}/);
+  const ifsc = text.match(/\bIFSC(?:\s+Code)?\s*[:\-]?\s*([A-Z]{4}0[A-Z0-9]{6})\b/i);
+  const micr = text.match(/\bMICR(?:\s+Code)?\s*[:\-]?\s*(\d{9})\b/i);
+  const balanceMatch = text.match(/(?:closing|available|ledger|account)\s+balance(?:\s+as\s+on\s+[^:\n]+)?\s*[:\-]?\s*(?:INR|Rs\.?|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i)
     || text.match(/balance\s+at\s+the\s+end\s+of\s+the\s+statement\s*[:\-]?\s*(?:INR|Rs\.?|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i);
-  const balance = balanceMatch?.[1] ? Number(balanceMatch[1].replace(/,/g, '')) : null;
+  const explicitBalance = balanceMatch?.[1] ? Number(balanceMatch[1].replace(/,/g, '')) : null;
+  const balanceHeader = allRows.find(row =>
+    row.cells.some(cell => /\bbalance\b/i.test(cell.text)) &&
+    row.cells.some(cell => /\bdate\b/i.test(cell.text))
+  );
+  const balanceColumnX = balanceHeader?.cells.find(cell => /\bbalance\b/i.test(cell.text))?.x;
+  const rowBalances = balanceColumnX === undefined ? [] : allRows.flatMap(row => {
+    const dateCell = row.cells.find(cell => parseDate(cell.text) !== null);
+    if (!dateCell) return [];
+    const numericCells = row.cells.map(cell => {
+      const normalized = cell.text.replace(/,/g, '').replace(/(?:CR|DR)$/i, '').trim();
+      return { cell, value: /^-?\d+(?:\.\d{1,2})?$/.test(normalized) ? Number(normalized) : null };
+    }).filter((item): item is { cell: { text: string; x: number; y: number }; value: number } =>
+      item.value !== null && Number.isFinite(item.value) && item.cell.x >= balanceColumnX - 45
+    ).sort((a, b) => Math.abs(a.cell.x - balanceColumnX) - Math.abs(b.cell.x - balanceColumnX));
+    return numericCells.length ? [{ date: parseDate(dateCell.text) || dateCell.text, balance: numericCells[0].value }] : [];
+  });
+  const latestBalance = rowBalances.sort((a, b) => b.date.localeCompare(a.date))[0]?.balance ?? null;
+  const balance = explicitBalance !== null && Number.isFinite(explicitBalance) ? explicitBalance : latestBalance;
   return {
     accountNumber: accountMatch?.[1]?.replace(/\D/g, '') ?? null,
-    accountHolder: get(['Account Holder Name', 'Customer Name', 'Name of Customer', 'Name']),
-    customerAddress: get(['Customer Address', 'Communication Address', 'Mailing Address', 'Address']),
-    customerCity: get(['Customer City', 'City']),
-    customerPin: pinMatch?.[1] ?? '',
-    branchName: get(['Branch Name', 'Branch']),
-    branchAddress: get(['Branch Address']),
-    branchCity: get(['Branch City']),
-    branchPin: branchPinMatch?.[1] ?? '',
-    ifsc: ifscMatch?.[1] ?? '',
+    accountHolder: get(['Customer Name', 'Account Holder Name', 'Name of Customer'], 'customer'),
+    customerAddress: get(['Customer Address', 'Communication Address', 'Mailing Address', 'Address'], 'customer'),
+    customerCity: get(['Customer City', 'City'], 'customer'),
+    customerPin: customerPin?.[0] ?? '',
+    branchName: get(['Branch Name'], 'branch'),
+    branchAddress: get(['Branch Address'], 'branch'),
+    branchCity: get(['Branch City', 'City'], 'branch'),
+    branchPin: branchPin?.[0] ?? '',
+    ifsc: ifsc?.[1] ?? '',
+    micrCode: micr?.[1] ?? '',
+    customerId: get(['Customer ID', 'Customer Id', 'CIF ID', 'CIF Number'], 'customer'),
+    ckycNumber: get(['CKYC Number', 'CKYC No'], 'customer'),
+    nominee: get(['Nominee Name', 'Nominee'], 'customer'),
     accountType: /\bcurrent\s+account\b/i.test(text) ? 'Current' : 'Savings',
     closingBalance: balance !== null && Number.isFinite(balance) ? balance : null,
   };

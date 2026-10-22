@@ -17,25 +17,24 @@ import { RupeeIcon } from "@/components/rupee-icon";
 import { toast } from "@/hooks/use-toast";
 
 const TransactionRow = ({ transaction }: { transaction: Transaction & { balance: number } }) => {
-    const { state } = useAppContext();
     const isDebit = transaction.type === 'debit';
     const formattedAmount = formatCurrency(Math.abs(transaction.amount));
     const formattedBalance = formatCurrency(transaction.balance);
 
     return (
         <div className="py-3 px-4">
-            <div className="flex justify-between items-start">
-                <div className="flex-1 pr-4">
-                    <p className="text-sm font-semibold text-gray-800 break-words">{transaction.description}</p>
+            <div className="flex w-full min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0 flex-1 pr-2">
+                    <p className="break-words whitespace-normal text-left text-sm font-semibold text-gray-800">{transaction.description}</p>
                     <p className="text-xs text-gray-500 mt-1">{format(new Date(transaction.date), 'MMM dd, yyyy')}</p>
                 </div>
-                <div className="text-right flex-shrink-0">
-                    <p className={`text-base font-bold whitespace-nowrap flex items-center justify-end tracking-tighter ${isDebit ? 'text-red-600' : 'text-green-600'}`}>
+                <div className="max-w-[44%] shrink-0 text-right">
+                    <p className={`text-xs sm:text-base font-bold whitespace-nowrap flex items-center justify-end tracking-tighter ${isDebit ? 'text-red-600' : 'text-green-600'}`}>
                         {isDebit ? '-' : '+'}{' '}
                         <RupeeIcon className="w-3.5 h-3.5 mx-0.5" />{formattedAmount}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">Available Balance</p>
-                    <p className="text-sm font-semibold text-gray-800 mt-0.5 flex items-center justify-end tracking-tighter"><RupeeIcon className="w-3 h-3 mr-0.5" />{formattedBalance}</p>
+                    <p className="text-[10px] sm:text-xs text-gray-500 mt-1">Available Balance</p>
+                    <p className="text-xs sm:text-sm font-semibold text-gray-800 mt-0.5 flex items-center justify-end tracking-tighter"><RupeeIcon className="w-3 h-3 mr-0.5" />{formattedBalance}</p>
                 </div>
             </div>
             <Separator className="mt-3" />
@@ -103,16 +102,20 @@ export function StatementContent() {
                 pdfPassword: state.settings.pdfPassword,
             });
             
-            // Create a temporary link to initiate the download.
-            // The native Android code will intercept this.
+            const response = await fetch(pdfDataUri);
+            const pdfBlob = await response.blob();
+            const blobUrl = URL.createObjectURL(pdfBlob);
             const link = document.createElement('a');
-            link.href = pdfDataUri;
-            link.download = `Statement-${state.accounts[0].accountNumber}.pdf`;
+            link.href = blobUrl;
+            link.download = 'Statement-' + state.accounts[0].accountNumber + '.pdf';
+            link.rel = 'noopener';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            
-            toast({ title: "Download Initiated", description: "Check your device for the downloaded statement." });
+            // Keep the object URL alive long enough for iOS browsers to start the save.
+            window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+
+            toast({ title: "Download Started", description: "Use Share or Save to Files if your browser opens the PDF instead of saving it directly." });
         } catch (error) {
             console.error("PDF Generation/Download Error:", error);
             toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'Failed to generate or download PDF.' });

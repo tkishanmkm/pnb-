@@ -48,7 +48,6 @@ const AccountSettings = () => {
     const [user, setUser] = useState(state.user);
     const [account, setAccount] = useState(state.accounts[0]);
     const [settings, setSettings] = useState(state.settings);
-
     const handleSave = () => {
         dispatch({ type: 'UPDATE_USER', payload: user });
         dispatch({ type: 'UPDATE_ACCOUNT', payload: { ...account, currencySymbol: settings.currencySymbol } });
@@ -65,7 +64,7 @@ const AccountSettings = () => {
             </div>
              <div className="space-y-2">
                 <Label htmlFor="customerId">Customer ID</Label>
-                <Input id="customerId" value={user.id || ''} onChange={e => setUser({...user, id: e.target.value})} />
+                <Input id="customerId" value={account.customerId || ''} onChange={e => setAccount({...account, customerId: e.target.value})} />
             </div>
              <div className="space-y-2">
                 <Label htmlFor="dob">Date of Birth</Label>
@@ -478,13 +477,6 @@ const DataManagement = () => {
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [storageInfo, setStorageInfo] = useState<{ usage?: number; quota?: number; persistent?: boolean }>({});
-    const [settings, setSettings] = useState(state.settings);
-
-    const handleSaveSecurity = () => {
-        dispatch({ type: 'UPDATE_SETTINGS', payload: settings });
-        toast({ title: "Success", description: "Security settings updated." });
-    };
-
     useEffect(() => {
         async function fetchStorageInfo() {
             const estimate = await getStorageEstimate();
@@ -725,20 +717,8 @@ const DataManagement = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                        Password-protected PDF export is not available in the current PDF engine. Leave this blank to export statements. If a password was imported from an older backup, clear it before exporting.
+                        Every downloaded statement PDF is password-protected automatically. The password is the full account number printed in the statement. The app logo and banner are not changed by statement extraction.
                     </p>
-                    <div className="space-y-2">
-                        <Label htmlFor="pdfPassword">PDF Statement Password (unsupported)</Label>
-                        <Input
-                            id="pdfPassword"
-                            type="password"
-                            autoComplete="new-password"
-                            value={settings.pdfPassword || ''}
-                            onChange={(e) => setSettings({ ...settings, pdfPassword: e.target.value })}
-                            placeholder="Leave blank"
-                        />
-                    </div>
-                    <Button onClick={handleSaveSecurity} className="w-full">Save Security Settings</Button>
                 </CardContent>
             </Card>
         </CardContent>
@@ -871,38 +851,23 @@ const PdfExtraction = () => {
                         extractTransactionsFromPdf(dataUri),
                     ]);
                     const accountNumber = details.accountNumber;
-                    const destinationAccountId = findMatchingAccountId(accountNumber);
+                    const destinationAccountId = accountNumber ? 'statement-' + accountNumber.replace(/\\D/g, '') : 'statement-import';
                     setStatementDetails(details);
-                    // Match existing transactions one-for-one so repeated legitimate payments are preserved.
-                    const alreadyMatched = new Set<number>();
-                    const uniqueResults = results.filter(newTx => {
-                        if (!destinationAccountId) return true;
-                        const matchIndex = state.transactions.findIndex((existingTx, index) => {
-                            if (alreadyMatched.has(index) || existingTx.accountId !== destinationAccountId) return false;
-                            const sameReference = Boolean(existingTx.reference && newTx.reference) &&
-                                existingTx.reference?.trim().toLowerCase() === newTx.reference?.trim().toLowerCase();
-                            const sameDetails = existingTx.date.slice(0, 10) === newTx.date.slice(0, 10) &&
-                                Math.abs(existingTx.amount) === Math.abs(newTx.amount) &&
-                                existingTx.description.trim().toLowerCase() === newTx.description.trim().toLowerCase();
-                            return sameReference || sameDetails;
-                        });
-                        if (matchIndex >= 0) {
-                            alreadyMatched.add(matchIndex);
-                            return false;
-                        }
-                        return true;
-                    }).map(transaction => ({ ...transaction, accountId: destinationAccountId || 'unmatched' }));
+                    // Keep every parsed row, including repeated payments. Saving replaces the old dataset.
+                    const statementTransactions = results.map((transaction, index) => ({
+                        ...transaction,
+                        id: 'statement-' + index + '-' + transaction.date.slice(0, 10),
+                        accountId: destinationAccountId,
+                    }));
                     setStatementAccountNumber(accountNumber);
                     setMatchedAccountId(destinationAccountId);
-                    setPreviewData(uniqueResults);
+                    setPreviewData(statementTransactions);
                     setIsExtracting(false);
                     toast({
-                        title: "Extraction Complete",
+                        title: 'Extraction Complete',
                         description: accountNumber
-                            ? destinationAccountId
-                                ? `Found ${results.length} transactions; ${uniqueResults.length} are new for the matching account.`
-                                : "Transactions extracted, but this statement does not match any saved account. Saving is blocked to prevent mixing accounts."
-                            : "Transactions extracted, but the statement account number could not be verified. Saving is blocked.",
+                            ? 'Extracted ' + statementTransactions.length + ' transactions. Saving replaces the old account and transaction data.'
+                            : 'Transactions extracted, but no account number was found. Saving is blocked to avoid an unidentified account.',
                     });
                 } catch (error) {
                     console.error("Failed to extract transactions from PDF:", error);
@@ -922,38 +887,65 @@ const PdfExtraction = () => {
     };
 
     const handleSavePreview = async () => {
-        if (!statementAccountNumber) {
-            toast({ variant: 'destructive', title: 'Account number not found', description: 'This PDF does not expose an account number, so a safe account record cannot be created.' });
+        const accountNumber = normalizeAccountNumber(statementAccountNumber);
+        if (!accountNumber) {
+            toast({ variant: 'destructive', title: 'Account number not found', description: 'The statement must contain an identifiable account number before replacing app data.' });
             return;
         }
-        const existingAccount = state.accounts.find(account => normalizeAccountNumber(account.accountNumber) === normalizeAccountNumber(statementAccountNumber));
-        const destinationAccountId = existingAccount?.id || ('statement-' + normalizeAccountNumber(statementAccountNumber));
-        const template = existingAccount || state.accounts[0];
+        const template = state.accounts[0];
         if (!template) {
-            toast({ variant: 'destructive', title: 'Cannot save statement', description: 'No account template is available.' });
+            toast({ variant: 'destructive', title: 'Cannot save statement', description: 'The app account template is missing.' });
             return;
         }
         const details = statementDetails;
-        const destinationAccount: AccountDetails = existingAccount || {
-            ...template, id: destinationAccountId, userId: state.user.id || destinationAccountId,
-            accountNumber: statementAccountNumber, type: details?.accountType || 'Savings',
-            balance: details?.closingBalance ?? 0, accountHolder: details?.accountHolder || '',
-            customerAddress: details?.customerAddress || '', customerCity: details?.customerCity || '',
-            customerPin: details?.customerPin || '', branchName: details?.branchName || '',
-            branchAddress: details?.branchAddress || '', branchCity: details?.branchCity || '',
-            branchPin: details?.branchPin || '', ifsc: details?.ifsc || '', ckycNumber: '', nominee: '',
+        const accountId = 'statement-' + accountNumber;
+        const account: AccountDetails = {
+            ...template,
+            id: accountId,
+            userId: state.user.id || accountId,
+            accountNumber,
+            type: details?.accountType || 'Savings',
+            balance: details?.closingBalance ?? 0,
+            accountHolder: details?.accountHolder || '',
+            customerAddress: details?.customerAddress || '',
+            customerCity: details?.customerCity || '',
+            customerPin: details?.customerPin || '',
+            branchName: details?.branchName || '',
+            branchAddress: details?.branchAddress || '',
+            branchCity: details?.branchCity || '',
+            branchPin: details?.branchPin || '',
+            ifsc: details?.ifsc || '',
+            micrCode: details?.micrCode || '',
+            customerId: details?.customerId || '',
+            ckycNumber: details?.ckycNumber || '',
+            nominee: details?.nominee || '',
+            averageQuarterlyBalance: undefined,
+            upiId: undefined,
+            status: undefined,
             currencySymbol: template.currencySymbol || state.settings.currencySymbol,
         };
-        const transactions = previewData.map((tx, index) => ({
-            ...tx, id: destinationAccountId + '-' + (tx.id || index) + '-' + index, accountId: destinationAccountId,
+        const replacementTransactions = previewData.map((tx, index) => ({
+            ...tx,
+            id: 'statement-' + accountNumber + '-' + index + '-' + tx.date.slice(0, 10),
+            accountId,
         }));
-        if (!existingAccount) dispatch({ type: 'ADD_ACCOUNT', payload: destinationAccount });
-        else if (details?.closingBalance !== null && details?.closingBalance !== undefined) {
-            dispatch({ type: 'UPDATE_ACCOUNT', payload: { ...existingAccount, balance: details.closingBalance } });
-        }
-        dispatch({ type: 'UPDATE_TRANSACTIONS', payload: [...transactions, ...state.transactions] });
-        toast({ title: 'Statement saved', description: transactions.length + ' transactions saved to account ending ' + statementAccountNumber.slice(-4) + (details?.closingBalance !== null && details?.closingBalance !== undefined ? '; closing balance ' + details.closingBalance : '') + '.' });
-        setPreviewData([]); setFile(null); setStatementAccountNumber(null); setMatchedAccountId(null); setStatementDetails(null);
+        dispatch({ type: 'REPLACE_STATEMENT_DATA', payload: { account, transactions: replacementTransactions } });
+        const missing: string[] = [];
+        if (!details?.accountHolder) missing.push('customer name');
+        if (!details?.customerAddress) missing.push('customer address');
+        if (!details?.customerPin) missing.push('customer PIN');
+        if (!details?.branchName) missing.push('branch name');
+        if (!details?.branchAddress) missing.push('branch address');
+        if (details?.closingBalance === null || details?.closingBalance === undefined) missing.push('closing balance');
+        toast({
+            title: 'Statement data replaced',
+            description: replacementTransactions.length + ' transactions saved. Previous accounts and transactions were replaced. App logo and banner settings were preserved.' + (missing.length ? ' Could not detect: ' + missing.join(', ') + '. Please verify these fields in the PDF.' : ''),
+        });
+        setPreviewData([]);
+        setFile(null);
+        setStatementAccountNumber(null);
+        setMatchedAccountId(null);
+        setStatementDetails(null);
     };
 
     const handleExport = () => {
@@ -1024,23 +1016,27 @@ const PdfExtraction = () => {
             {previewData.length > 0 && (
                 <div className="space-y-2 mt-4">
                     <div className="rounded border p-3 text-sm">
-                        {statementAccountNumber && matchedAccountId ? (
-                            <p>Statement account verified against a saved account. Transactions will be added only to that account.</p>
-                        ) : (
-                            <p className="text-muted-foreground">This statement will be saved to a separate account record, so its transactions and extracted details stay separate from other customers.</p>
-                        )}
+                        <p className="text-muted-foreground">Saving will replace all saved account and transaction data with this statement. App logo, banner, and appearance settings will be preserved.</p>
                         {statementAccountNumber && <p className="text-muted-foreground mt-1">Statement account ending in {statementAccountNumber.slice(-4)}.</p>}
                         {statementDetails?.accountHolder && <p>Account holder: {statementDetails.accountHolder}</p>}
                         {statementDetails?.customerAddress && <p>Address: {statementDetails.customerAddress}</p>}
-                        {statementDetails?.customerPin && <p>PIN code: {statementDetails.customerPin}</p>}
+                        {statementDetails?.customerPin && <p>Customer PIN: {statementDetails.customerPin}</p>}
+                        {statementDetails?.branchName && <p>Branch: {statementDetails.branchName}</p>}
+                        {statementDetails?.branchAddress && <p>Branch address: {statementDetails.branchAddress}</p>}
+                        {statementDetails?.branchCity && <p>Branch city: {statementDetails.branchCity}</p>}
+                        {statementDetails?.branchPin && <p>Branch PIN: {statementDetails.branchPin}</p>}
+                        {statementDetails?.ifsc && <p>IFSC: {statementDetails.ifsc}</p>}
+                        {statementDetails?.micrCode && <p>MICR: {statementDetails.micrCode}</p>}
+                        {statementDetails?.customerId && <p>Customer ID: {statementDetails.customerId}</p>}
+                        {statementDetails?.ckycNumber && <p>CKYC: {statementDetails.ckycNumber}</p>}
                         {statementDetails?.closingBalance !== null && statementDetails?.closingBalance !== undefined && <p>Closing balance: {statementDetails.closingBalance}</p>}
                     </div>
-                    <p className="font-semibold">Preview ({previewData.length} new transactions):</p>
+                    <p className="font-semibold">Preview ({previewData.length} extracted transactions; old transactions will be removed):</p>
                     <div className="max-h-60 overflow-y-auto border rounded p-2 text-xs">
                         {previewData.map((tx, i) => <div key={i}>{new Date(tx.date).toLocaleDateString()} - {tx.description} - {tx.amount}</div>)}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <Button onClick={handleSavePreview} disabled={!statementAccountNumber}>Save to Store</Button>
+                        <Button onClick={handleSavePreview} disabled={!statementAccountNumber}>Replace App Data</Button>
                         <Button onClick={handleExport} variant="outline">Export as JSON</Button>
                     </div>
                 </div>

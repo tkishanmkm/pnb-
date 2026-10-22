@@ -37,17 +37,16 @@ const BalanceDetailRow = ({ label, value }: { label: string; value: number }) =>
 
 
 const TransactionItem = ({ transaction }: { transaction: Transaction }) => {
-    const { state } = useAppContext();
     const isDebit = transaction.type === 'debit';
     const formattedAmount = formatCurrency(Math.abs(transaction.amount));
 
     return (
-        <div className="flex justify-between items-start py-2">
-            <div>
-                <p className="text-xs font-semibold text-gray-700">{transaction.description}</p>
+        <div className="flex w-full min-w-0 items-start justify-between gap-3 py-2">
+            <div className="min-w-0 flex-1">
+                <p className="break-words whitespace-normal text-left text-xs font-semibold text-gray-700">{transaction.description}</p>
                 <p className="text-xs text-gray-500">{format(new Date(transaction.date), 'MMM dd, yyyy')}</p>
             </div>
-            <p className={`text-sm font-bold whitespace-nowrap flex items-center tracking-tighter ${isDebit ? 'text-red-600' : 'text-green-600'}`}>
+            <p className={`max-w-[42%] shrink-0 whitespace-nowrap text-right text-sm font-bold flex items-center justify-end tracking-tighter ${isDebit ? 'text-red-600' : 'text-green-600'}`}>
                 {isDebit ? '-' : '+'} <RupeeIcon className="w-3 h-3 mx-0.5" />{formattedAmount}
             </p>
         </div>
@@ -71,7 +70,7 @@ export default function SavingAccountDetailsPage() {
     
     const averageQuarterlyBalance = account.averageQuarterlyBalance || 0;
     
-    const last10Transactions = transactions
+    const last10Transactions = [...transactions]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 10);
 

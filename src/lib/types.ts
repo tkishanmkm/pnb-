@@ -49,6 +49,8 @@ export interface AccountDetails {
   branchCity: string;
   branchPin: string;
   ifsc: string;
+  micrCode?: string;
+  customerId?: string;
   ckycNumber: string;
   nominee: string;
   averageQuarterlyBalance?: number;
@@ -181,6 +183,7 @@ export type Action =
   | { type: 'UPDATE_ACCOUNT'; payload: AccountDetails }
   | { type: 'ADD_ACCOUNT'; payload: AccountDetails }
   | { type: 'UPDATE_TRANSACTIONS'; payload: Transaction[] }
+  | { type: 'REPLACE_STATEMENT_DATA'; payload: { account: AccountDetails; transactions: Transaction[] } }
   | { type: 'ADD_PAYEE'; payload: Payee }
   | { type: 'DELETE_PAYEE'; payload: {id: string} }
   | { type: 'UPDATE_PAYEES'; payload: Payee[] }

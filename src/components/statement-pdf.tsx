@@ -2,9 +2,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
-import { PDFDocument } from 'pdf-lib';
 import type { AccountDetails, Transaction } from '@/lib/types';
-import { toast } from '@/hooks/use-toast';
 
 interface StatementPDFProps {
     account: AccountDetails;
@@ -17,13 +15,20 @@ interface StatementPDFProps {
 
 // This function now returns a Promise that resolves to the PDF as a data URI
 const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => {
-    const { account, transactions, period, banner, lastPagePdfDataUri, pdfPassword } = props;
+    const { account, transactions, period, banner, lastPagePdfDataUri } = props;
 
-    if (pdfPassword?.trim()) {
-        throw new Error('This version cannot export password-protected PDFs. Clear the PDF password setting and try again.');
-    }
-
-    const doc = new jsPDF('p', 'mm', 'a4');
+    const statementPassword = account.accountNumber.replace(/\s+/g, '');
+    if (!statementPassword) throw new Error('Cannot protect the statement because the account number is missing.');
+    const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+        encryption: {
+            userPassword: statementPassword,
+            ownerPassword: statementPassword + '-pnb-owner',
+            userPermissions: ['print'],
+        },
+    });
     const pageWidth = doc.internal.pageSize.width;
     const margin = 10;
     let finalYPos = 0;
@@ -57,7 +62,8 @@ const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => 
             `Branch Address:    ${account.branchAddress || ''}`,
             `City:                       ${account.branchCity || ''}`,
             `Pin:                         ${account.branchPin || ''}`,
-            `IFSC Code:            ${account.ifsc || ''}`
+            `IFSC Code:            ${account.ifsc || ''}`,
+            `MICR Code:            ${account.micrCode || ''}`
         ];
 
         branchDetails.forEach(line => {
@@ -152,34 +158,36 @@ const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => 
     addHeader();
     renderTable([...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), finalYPos);
     
-    let finalPdfBytes: Uint8Array = new Uint8Array(doc.output('arraybuffer'));
-
     if (lastPagePdfDataUri) {
         try {
-            const mergedPdf = await PDFDocument.create();
-            
-            const statementPdfDoc = await PDFDocument.load(finalPdfBytes);
-            const statementPages = await mergedPdf.copyPages(statementPdfDoc, statementPdfDoc.getPageIndices());
-            statementPages.forEach(page => mergedPdf.addPage(page));
-
-            const lastPagePdfBytes = new Uint8Array(atob(lastPagePdfDataUri.split(',')[1]).split('').map(char => char.charCodeAt(0)));
-            const lastPagePdfDoc = await PDFDocument.load(lastPagePdfBytes);
-            const lastPageIndex = lastPagePdfDoc.getPageCount() - 1;
-            if (lastPageIndex >= 0) {
-                const lastPages = await mergedPdf.copyPages(lastPagePdfDoc, [lastPageIndex]);
-                lastPages.forEach(page => mergedPdf.addPage(page));
-            }
-            
-            finalPdfBytes = await mergedPdf.save();
-
-        } catch (e) {
-            console.error("Failed to merge PDFs.", e);
-            toast({ variant: 'destructive', title: 'Error', description: "Failed to merge statement with final page."});
+            const pdfjsLib = await import('pdfjs-dist');
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+            const base64 = lastPagePdfDataUri.includes(',') ? lastPagePdfDataUri.slice(lastPagePdfDataUri.indexOf(',') + 1) : lastPagePdfDataUri;
+            const sourceBytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+            const sourcePdf = await pdfjsLib.getDocument({ data: sourceBytes }).promise;
+            const sourcePage = await sourcePdf.getPage(sourcePdf.numPages);
+            const viewport = sourcePage.getViewport({ scale: 1.5 });
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.ceil(viewport.width);
+            canvas.height = Math.ceil(viewport.height);
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('Canvas rendering is unavailable.');
+            await sourcePage.render({ canvas, canvasContext: context, viewport }).promise;
+            doc.addPage('a4', 'p');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const ratio = Math.min((pageWidth - margin * 2) / canvas.width, (pageHeight - margin * 2) / canvas.height);
+            const imageWidth = canvas.width * ratio;
+            const imageHeight = canvas.height * ratio;
+            doc.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', (pageWidth - imageWidth) / 2, (pageHeight - imageHeight) / 2, imageWidth, imageHeight, undefined, 'FAST');
+            canvas.width = 0;
+            canvas.height = 0;
+        } catch (error) {
+            console.error('Could not append the configured final PDF page:', error);
+            throw new Error('The configured final page could not be added. Remove or re-upload that page in Settings and try again.');
         }
     }
-
-    const finalPdfDoc = await PDFDocument.load(finalPdfBytes);
-    return await finalPdfDoc.saveAsBase64({ dataUri: true });
+    return doc.output('datauristring');
 };
 
 
