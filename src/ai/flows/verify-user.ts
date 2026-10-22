@@ -29,24 +29,6 @@ export async function verifyUser(input: VerifyUserInput): Promise<VerifyUserOutp
   return verifyUserFlow(input);
 }
 
-const verifyUserPrompt = ai.definePrompt({
-  name: 'verifyUserPrompt',
-  input: {schema: VerifyUserInputSchema},
-  output: {schema: VerifyUserOutputSchema},
-  prompt: `You are an AI assistant helping to verify user identity.
-
-  The user is attempting to log in to their bank account. Verify their identity by checking if the provided MPIN matches the expected MPIN for the given user ID.
-
-  If the MPIN matches, set isVerified to true and provide a success message.
-  If the MPIN does not match, set isVerified to false and provide an appropriate error message.
-
-  Input User ID: {{{userId}}}
-  Input MPIN: {{{mpin}}}
-
-  Return a JSON object with the verification status and a message.
-  `,
-});
-
 const verifyUserFlow = ai.defineFlow(
   {
     name: 'verifyUserFlow',
@@ -71,11 +53,7 @@ const verifyUserFlow = ai.defineFlow(
       message = 'Verification failed. Incorrect MPIN.';
     }
 
-    const {output} = await verifyUserPrompt({
-      ...input,
-      isVerified: isVerified,
-      message: message,
-    });
+
 
     return {
       isVerified: isVerified,
