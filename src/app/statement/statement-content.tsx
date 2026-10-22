@@ -107,7 +107,7 @@ export function StatementContent() {
             toast({ title: "Download Initiated", description: "Check your device for the downloaded statement." });
         } catch (error) {
             console.error("PDF Generation/Download Error:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to generate or download PDF.' });
+            toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'Failed to generate or download PDF.' });
         } finally {
             setIsGeneratingPdf(false);
         }
