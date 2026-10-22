@@ -239,7 +239,7 @@ function AgentLiveChatContent() {
               <div className="flex flex-col items-center justify-center text-center text-gray-500 h-full p-8">
                   <MessageSquare className="h-12 w-12 text-gray-300 mb-4" />
                   <h2 className="text-lg font-semibold">Start a Conversation</h2>
-                  <p className="text-sm">Type 'Hi' in the message box below to connect with an agent.</p>
+                  <p className="text-sm">Type &apos;Hi&apos; in the message box below to connect with an agent.</p>
               </div>
           )}
           {messages.map(message => (
