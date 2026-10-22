@@ -699,7 +699,7 @@ const PdfExtraction = () => {
     const { toast } = useToast();
     const [file, setFile] = useState<File | null>(null);
     const [isExtracting, setIsExtracting] = useState(false);
-    const [extractedTransactions, setExtractedTransactions] = useState<any[]>([]);
+    const [previewData, setPreviewData] = useState<Transaction[]>([]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -715,36 +715,64 @@ const PdfExtraction = () => {
             reader.onload = async (event) => {
                 try {
                     const dataUri = event.target?.result as string;
-                    const results = await extractTransactionsFromPdf({ pdfDataUri: dataUri });
-                    setExtractedTransactions(results);
+                    const results = await extractTransactionsFromPdf(dataUri);
+                    const uniqueResults = results.filter(newTx => 
+                        !state.transactions.some(existingTx => 
+                            existingTx.reference === newTx.reference || 
+                            (existingTx.date === newTx.date && existingTx.amount === newTx.amount && existingTx.description === newTx.description)
+                        )
+                    );
+                    setPreviewData(uniqueResults);
                     setIsExtracting(false);
-                    toast({ title: "Extraction Complete", description: `Found ${results.length} transactions.` });
+                    toast({ title: "Extraction Complete", description: `Found ${results.length} transactions, ${uniqueResults.length} unique.` });
                 } catch (error) {
                     console.error("Failed to extract transactions from PDF:", error);
                     setIsExtracting(false);
                     toast({ variant: 'destructive', title: "Error", description: "Failed to extract transactions." });
                 }
             };
-            reader.onerror = (error) => {
-                console.error("FileReader error reading PDF statement:", error);
-                setIsExtracting(false);
-                toast({ variant: 'destructive', title: "Error", description: "Failed to read file." });
-            };
             reader.readAsDataURL(file);
         } catch (error) {
             console.error("Failed to start extracting transactions:", error);
             setIsExtracting(false);
-            toast({ variant: 'destructive', title: "Error", description: "Failed to extract transactions." });
         }
     };
 
-    const handleAddTransactions = () => {
-        extractedTransactions.forEach(tx => {
+    const handleSavePreview = async () => {
+        for (const tx of previewData) {
             dispatch({ type: 'ADD_TRANSACTION', payload: tx });
-        });
-        setExtractedTransactions([]);
+        }
+        toast({ title: "Success", description: `${previewData.length} transactions saved.` });
+        setPreviewData([]);
         setFile(null);
-        toast({ title: "Transactions Added", description: `${extractedTransactions.length} transactions added to history.` });
+    };
+
+    const handleExport = () => {
+        const json = JSON.stringify({ transactions: previewData, timestamp: new Date().toISOString() }, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pnb-pro-extracted-data-${format(new Date(), 'yyyy-MM-dd')}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target?.result as string);
+                if (!data.transactions || !Array.isArray(data.transactions)) throw new Error("Invalid structure");
+                setPreviewData(data.transactions);
+                toast({ title: "Import Ready", description: "Preview extracted data before saving." });
+            } catch {
+                toast({ variant: 'destructive', title: "Import Error", description: "Invalid JSON format." });
+            }
+        };
+        reader.readAsText(file);
     };
 
     return (
@@ -752,27 +780,26 @@ const PdfExtraction = () => {
             <div className="space-y-2">
                 <Label htmlFor="pdf-upload">Upload PDF Bank Statement</Label>
                 <Input id="pdf-upload" type="file" accept=".pdf" onChange={handleFileChange} />
+                <Button onClick={handleExtract} disabled={!file || isExtracting} className="w-full">
+                    {isExtracting ? 'Extracting...' : 'Extract Transactions'}
+                </Button>
             </div>
-            <Button onClick={handleExtract} disabled={!file || isExtracting} className="w-full">
-                {isExtracting ? "Extracting..." : "Extract Transactions"}
-            </Button>
-
-            {extractedTransactions.length > 0 && (
-                <div className="mt-6 space-y-4">
-                    <h3 className="font-semibold">Extracted Transactions Preview</h3>
-                    <div className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-2">
-                        {extractedTransactions.map((tx, idx) => (
-                            <div key={idx} className="text-xs border-b py-2 last:border-0">
-                                <p className="font-semibold">{new Date(tx.date).toLocaleDateString()} - {tx.description}</p>
-                                <p className={tx.amount < 0 ? "text-red-500 font-bold" : "text-green-500 font-bold"}>
-                                    {tx.amount < 0 ? "-" : "+"}{state.settings.currencySymbol}{Math.abs(tx.amount).toFixed(2)}
-                                </p>
-                            </div>
-                        ))}
+            {previewData.length > 0 && (
+                <div className="space-y-2 mt-4">
+                    <p className="font-semibold">Preview ({previewData.length} new transactions):</p>
+                    <div className="max-h-60 overflow-y-auto border rounded p-2 text-xs">
+                        {previewData.map((tx, i) => <div key={i}>{new Date(tx.date).toLocaleDateString()} - {tx.description} - {tx.amount}</div>)}
                     </div>
-                    <Button onClick={handleAddTransactions} className="w-full">Add All to History</Button>
+                    <div className="grid grid-cols-2 gap-2">
+                        <Button onClick={handleSavePreview}>Save to Store</Button>
+                        <Button onClick={handleExport} variant="outline">Export as JSON</Button>
+                    </div>
                 </div>
             )}
+            <div className="border-t pt-4">
+                <Button onClick={() => importInputRef.current?.click()} variant="secondary" className="w-full">Import JSON Statement</Button>
+                <input type="file" ref={importInputRef} onChange={handleImportJson} className="hidden" accept=".json" />
+            </div>
         </CardContent>
     );
 };
