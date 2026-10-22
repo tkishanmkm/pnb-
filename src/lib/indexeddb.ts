@@ -10,10 +10,23 @@ export async function openDB(): Promise<IDBDatabase> {
       return reject(new Error('IndexedDB is not supported in this environment.'));
     }
     const request = indexedDB.open(DB_NAME, 1);
-    request.onerror = () => reject(request.error ?? new Error('Could not open IndexedDB.'));
-    request.onblocked = () => reject(new Error('IndexedDB upgrade is blocked by another open tab. Close other PNB tabs and try again.'));
+    let settled = false;
+    request.onerror = () => {
+      settled = true;
+      reject(request.error ?? new Error('Could not open IndexedDB.'));
+    };
+    request.onblocked = () => {
+      settled = true;
+      reject(new Error('IndexedDB upgrade is blocked by another open tab. Close other PNB tabs and try again.'));
+    };
     request.onsuccess = () => {
       const db = request.result;
+      // A blocked request can later succeed after the other tab closes. If its
+      // promise was already rejected, close the late connection to avoid leaks.
+      if (settled) {
+        db.close();
+        return;
+      }
       db.onversionchange = () => db.close();
       resolve(db);
     };
