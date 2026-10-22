@@ -64,11 +64,13 @@ const verifyUserTool = ai.defineTool(
         }),
     },
     async (input, context) => {
-        const {flow} = context!;
-        const {user} = flow.input as AgentChatInput;
-        
-        const isNameMatch = input.name.toLowerCase() === user.name.toLowerCase();
-        const isAccountMatch = user.accounts[0].accountNumber.endsWith(input.accountNumber.slice(-4));
+        const user = context.context.user as User;
+        const account = user.accounts?.[0];
+
+        const isNameMatch = input.name.trim().toLowerCase() === user.name.trim().toLowerCase();
+        const isAccountMatch = account?.accountNumber
+          ? account.accountNumber.endsWith(input.accountNumber.slice(-4))
+          : false;
         const isMobileMatch = user.mobileNumber.endsWith(input.mobileNumberLast4);
 
         if (isNameMatch && isAccountMatch && isMobileMatch) {
@@ -94,8 +96,7 @@ const getTransactionDetailsTool = ai.defineTool(
         outputSchema: z.string(),
     },
     async (input, context) => {
-        const {flow} = context!;
-        const {transactions} = flow.input as AgentChatInput;
+        const transactions = context.context.transactions as Transaction[];
 
         let filtered = transactions;
 
@@ -131,8 +132,7 @@ const getBeneficiaryDetailsTool = ai.defineTool(
         outputSchema: z.string(),
     },
     async (input, context) => {
-        const {flow} = context!;
-        const {payees} = flow.input as AgentChatInput;
+        const payees = context.context.payees as Payee[];
 
         const foundPayee = payees.find(p => 
             p.name.toLowerCase().includes(input.name.toLowerCase()) ||
@@ -177,8 +177,12 @@ ${isVerified ? `User's Name: ${user.name}` : "The user's name is currently unkno
 
         const response = await ai.generate({
             tools,
-            history: history,
-            prompt: history[history.length - 1].content as string, // Use last user message as prompt
+            messages: history,
+            context: {
+                user,
+                transactions: input.transactions,
+                payees: input.payees,
+            },
             system: systemPrompt,
             output: {
                 format: 'json',
