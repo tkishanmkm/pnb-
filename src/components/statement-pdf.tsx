@@ -164,8 +164,11 @@ const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => 
 
             const lastPagePdfBytes = new Uint8Array(atob(lastPagePdfDataUri.split(',')[1]).split('').map(char => char.charCodeAt(0)));
             const lastPagePdfDoc = await PDFDocument.load(lastPagePdfBytes);
-            const lastPages = await mergedPdf.copyPages(lastPagePdfDoc, lastPagePdfDoc.getPageIndices());
-            lastPages.forEach(page => mergedPdf.addPage(page));
+            const lastPageIndex = lastPagePdfDoc.getPageCount() - 1;
+            if (lastPageIndex >= 0) {
+                const lastPages = await mergedPdf.copyPages(lastPagePdfDoc, [lastPageIndex]);
+                lastPages.forEach(page => mergedPdf.addPage(page));
+            }
             
             finalPdfBytes = await mergedPdf.save();
 
