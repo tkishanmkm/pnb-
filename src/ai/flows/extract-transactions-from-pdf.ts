@@ -51,7 +51,7 @@ export async function extractStatementAccountNumberFromPdf(pdfDataUri: string): 
     .filter((item: any) => typeof item.str === 'string')
     .map((item: any) => item.str)
     .join(' ');
-  const match = text.match(/Statement\\s+of\\s+Account\\s*:?\\s*([0-9]{6,})/i);
+  const match = text.match(/Statement\s+of\s+Account\s*:?\s*([0-9]{6,})/i);
   return match?.[1] ?? null;
 }
 
