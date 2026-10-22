@@ -65,6 +65,10 @@ export default function AccountStatementPage() {
 
   const isSearchDisabled = searchType === 'period' && (!fromDate || !toDate);
 
+  if (!account) {
+    return <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-center"><p>No account is available. Import a valid app backup or add an account before viewing statements.</p><Link href="/settings"><Button>Open Settings</Button></Link></div>;
+  }
+
   return (
     <div className="flex flex-col h-screen bg-background">
        <header className="bg-primary text-primary-foreground p-4 flex items-center justify-between shadow-md sticky top-0 z-20">
