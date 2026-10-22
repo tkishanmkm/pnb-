@@ -140,8 +140,12 @@ const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => 
                 fontStyle: 'bold',
                 textColor: [0, 0, 0],
                 fontSize: 11,
-                cellPadding: { top: 1, right: 2, bottom: 0, left: 2 }, 
+                cellPadding: { top: 1, right: 2, bottom: 1, left: 2 },
+                overflow: 'linebreak',
+                valign: 'middle',
             },
+            // Keep each bank transaction together when remarks wrap across lines.
+            rowPageBreak: 'avoid',
             columnStyles: {
                 0: { halign: 'center', cellWidth: 22 },
                 1: { halign: 'left', cellWidth: 35 },

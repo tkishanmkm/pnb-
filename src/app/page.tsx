@@ -163,6 +163,9 @@ export default function LoginPage() {
                          <input
                             ref={el => { pinInputsRef.current[index] = el; }}
                             type="password"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            autoComplete="one-time-code"
                             maxLength={1}
                             value={digit}
                             onChange={(e) => handlePinChange(index, e.target.value)}

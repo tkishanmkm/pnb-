@@ -107,7 +107,10 @@ export function StatementContent() {
             const blobUrl = URL.createObjectURL(pdfBlob);
             const link = document.createElement('a');
             link.href = blobUrl;
-            link.download = 'Statement-' + state.accounts[0].accountNumber + '.pdf';
+            const accountDigits = String(state.accounts[0].accountNumber || '').replace(/\D/g, '');
+            const lastFour = accountDigits.slice(-4).padStart(4, '0');
+            const downloadDate = format(new Date(), 'ddMMyyyy');
+            link.download = 'PNBONE_STMT_XX' + lastFour + '_' + downloadDate + '.pdf';
             link.rel = 'noopener';
             document.body.appendChild(link);
             link.click();
@@ -137,7 +140,7 @@ export function StatementContent() {
                 </Button>
                 <h1 className="text-xl font-semibold">Statement</h1>
                 <Link href="/dashboard">
-                    <Button variant="ghost" size="icon" className="text-accent hover:bg-white/10">
+                    <Button variant="ghost" size="icon" className="h-10 w-10 min-h-10 min-w-10 text-accent hover:bg-white/10">
                         <Home className="h-6 w-6" />
                     </Button>
                 </Link>

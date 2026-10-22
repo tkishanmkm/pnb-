@@ -94,7 +94,7 @@ export default function ConfirmTransferPage() {
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-center">Enter TPIN</h2>
             <p className="text-center text-muted-foreground text-sm">Enter your 4-digit Transaction PIN to proceed.</p>
-            <Input type="password" placeholder="****" value={tpin} onChange={e => setTpin(e.target.value)} maxLength={4} className="text-center" />
+            <Input type="password" inputMode="numeric" pattern="[0-9]*" autoComplete="off" placeholder="****" value={tpin} onChange={e => setTpin(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} className="text-center" />
             <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setStep('summary')} className="w-full">Back</Button>
                 <Button onClick={verifyTpin} className="w-full">Verify TPIN</Button>
@@ -106,7 +106,7 @@ export default function ConfirmTransferPage() {
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-center">Enter OTP</h2>
             <p className="text-center text-muted-foreground text-sm">Enter the 6-digit One-Time Password sent to your mobile number.</p>
-            <Input type="text" placeholder="------" value={otp} onChange={e => setOtp(e.target.value)} maxLength={6} className="text-center" />
+            <Input type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" placeholder="------" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} className="text-center" />
             <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setStep('tpin')} className="w-full">Back</Button>
                 <Button onClick={verifyOtp} disabled={isProcessing} className="w-full">{isProcessing ? "Processing..." : "Confirm Transfer"}</Button>
