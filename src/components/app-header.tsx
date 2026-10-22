@@ -16,7 +16,7 @@ function HeaderComponent() {
   const router = useRouter();
 
   const handleLogout = React.useCallback(() => {
-    dispatch({ type: 'LOGOUT' });
+    dispatch({ type: 'LOGOUT_PENDING' });
     router.push('/');
   }, [dispatch, router]);
 
