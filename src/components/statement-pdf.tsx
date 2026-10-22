@@ -19,6 +19,10 @@ interface StatementPDFProps {
 const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => {
     const { account, transactions, period, banner, lastPagePdfDataUri, pdfPassword } = props;
 
+    if (pdfPassword?.trim()) {
+        throw new Error('This version cannot export password-protected PDFs. Clear the PDF password setting and try again.');
+    }
+
     const doc = new jsPDF('p', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.width;
     const margin = 10;
@@ -172,13 +176,6 @@ const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => 
     }
 
     const finalPdfDoc = await PDFDocument.load(finalPdfBytes);
-    if (pdfPassword) {
-        await finalPdfDoc.encrypt({
-            userPassword: pdfPassword,
-            ownerPassword: pdfPassword,
-        });
-    }
-
     return await finalPdfDoc.saveAsBase64({ dataUri: true });
 };
 
