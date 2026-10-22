@@ -489,15 +489,22 @@ const DataManagement = () => {
 
     const handleExport = () => {
         try {
-            const stateToExport = JSON.parse(JSON.stringify(state));
+            const stateToExport = JSON.parse(JSON.stringify({
+                ...state,
+                isAuthenticated: false,
+                loginPending: false,
+                isLoggingOut: false,
+            }));
             const json = JSON.stringify(stateToExport, null, 2);
             const blob = new Blob([json], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = 'pnb-pro-state.json';
+            document.body.appendChild(a);
             a.click();
-            URL.revokeObjectURL(url);
+            a.remove();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
             toast({ title: "Success", description: "State exported as JSON." });
         } catch (error) {
             console.error("Export error:", error);
@@ -847,8 +854,10 @@ const PdfExtraction = () => {
         const a = document.createElement('a');
         a.href = url;
         a.download = `pnb-pro-extracted-data-${format(new Date(), 'yyyy-MM-dd')}.json`;
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(url);
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
 
     const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
