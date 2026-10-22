@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import type { Payee, Transaction, CarouselBanner, AppSettings, IconAssets, ChatMessage, AccountDetails, AppState } from '@/lib/types';
-import { extractTransactionsFromPdf } from '@/ai/flows/extract-transactions-from-pdf';
+import { extractStatementAccountNumberFromPdf, extractTransactionsFromPdf } from '@/ai/flows/extract-transactions-from-pdf';
 import { Trash2, Edit, ArrowLeft, Home } from 'lucide-react';
 import Link from 'next/link';
 import { Textarea } from '@/components/ui/textarea';
@@ -803,11 +803,22 @@ const PdfExtraction = () => {
     const [file, setFile] = useState<File | null>(null);
     const [isExtracting, setIsExtracting] = useState(false);
     const [previewData, setPreviewData] = useState<Transaction[]>([]);
+    const [statementAccountNumber, setStatementAccountNumber] = useState<string | null>(null);
+    const [matchedAccountId, setMatchedAccountId] = useState<string | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
+    const normalizeAccountNumber = (value: string | null | undefined) => (value || '').replace(/\\D/g, '');
+    const findMatchingAccountId = (accountNumber: string | null | undefined) => {
+        const normalized = normalizeAccountNumber(accountNumber);
+        if (!normalized) return null;
+        return state.accounts.find(account => normalizeAccountNumber(account.accountNumber) === normalized)?.id || null;
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             setFile(e.target.files[0]);
+            setPreviewData([]);
+            setStatementAccountNumber(null);
+            setMatchedAccountId(null);
         }
     };
 
@@ -819,16 +830,30 @@ const PdfExtraction = () => {
             reader.onload = async (event) => {
                 try {
                     const dataUri = event.target?.result as string;
-                    const results = await extractTransactionsFromPdf(dataUri);
-                    const uniqueResults = results.filter(newTx => 
-                        !state.transactions.some(existingTx => 
-                            (Boolean(existingTx.reference) && Boolean(newTx.reference) && existingTx.reference === newTx.reference) || 
-                            (existingTx.date.slice(0, 10) === newTx.date.slice(0, 10) && Math.abs(existingTx.amount) === Math.abs(newTx.amount) && existingTx.description.trim().toLowerCase() === newTx.description.trim().toLowerCase())
+                    const [accountNumber, results] = await Promise.all([
+                        extractStatementAccountNumberFromPdf(dataUri),
+                        extractTransactionsFromPdf(dataUri),
+                    ]);
+                    const destinationAccountId = findMatchingAccountId(accountNumber);
+                    const uniqueResults = results.filter(newTx =>
+                        !state.transactions.some(existingTx =>
+                            existingTx.accountId === destinationAccountId &&
+                            ((Boolean(existingTx.reference) && Boolean(newTx.reference) && existingTx.reference === newTx.reference) ||
+                            (existingTx.date.slice(0, 10) === newTx.date.slice(0, 10) && Math.abs(existingTx.amount) === Math.abs(newTx.amount) && existingTx.description.trim().toLowerCase() === newTx.description.trim().toLowerCase()))
                         )
-                    );
+                    ).map(transaction => ({ ...transaction, accountId: destinationAccountId || 'unmatched' }));
+                    setStatementAccountNumber(accountNumber);
+                    setMatchedAccountId(destinationAccountId);
                     setPreviewData(uniqueResults);
                     setIsExtracting(false);
-                    toast({ title: "Extraction Complete", description: `Found ${results.length} transactions, ${uniqueResults.length} unique.` });
+                    toast({
+                        title: "Extraction Complete",
+                        description: accountNumber
+                            ? destinationAccountId
+                                ? `Found ${results.length} transactions; ${uniqueResults.length} are new for the matching account.`
+                                : "Transactions extracted, but this statement does not match any saved account. Saving is blocked to prevent mixing accounts."
+                            : "Transactions extracted, but the statement account number could not be verified. Saving is blocked.",
+                    });
                 } catch (error) {
                     console.error("Failed to extract transactions from PDF:", error);
                     setIsExtracting(false);
@@ -843,16 +868,28 @@ const PdfExtraction = () => {
     };
 
     const handleSavePreview = async () => {
-        for (const tx of previewData) {
-            dispatch({ type: 'ADD_TRANSACTION', payload: tx });
+        const destinationAccount = state.accounts.find(account => account.id === matchedAccountId);
+        if (!statementAccountNumber || !destinationAccount ||
+            normalizeAccountNumber(destinationAccount.accountNumber) !== normalizeAccountNumber(statementAccountNumber)) {
+            toast({
+                variant: 'destructive',
+                title: "Account mismatch",
+                description: "Choose a matching app backup/account before saving these transactions.",
+            });
+            return;
         }
-        toast({ title: "Success", description: `${previewData.length} transactions saved.` });
+        for (const tx of previewData) {
+            dispatch({ type: 'ADD_TRANSACTION', payload: { ...tx, accountId: destinationAccount.id } });
+        }
+        toast({ title: "Success", description: `${previewData.length} transactions saved to the matching account.` });
         setPreviewData([]);
         setFile(null);
+        setStatementAccountNumber(null);
+        setMatchedAccountId(null);
     };
 
     const handleExport = () => {
-        const json = JSON.stringify({ transactions: previewData, timestamp: new Date().toISOString() }, null, 2);
+        const json = JSON.stringify({ accountNumber: statementAccountNumber, transactions: previewData, timestamp: new Date().toISOString() }, null, 2);
         const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -871,9 +908,34 @@ const PdfExtraction = () => {
         reader.onload = (event) => {
             try {
                 const data = JSON.parse(event.target?.result as string);
-                if (!data.transactions || !Array.isArray(data.transactions)) throw new Error("Invalid structure");
-                setPreviewData(data.transactions);
-                toast({ title: "Import Ready", description: "Preview extracted data before saving." });
+                if (!data || !Array.isArray(data.transactions)) throw new Error("Invalid structure");
+                const importedAccountNumber = typeof data.accountNumber === 'string' ? data.accountNumber : null;
+                const destinationAccountId = findMatchingAccountId(importedAccountNumber);
+                const transactions = data.transactions.map((transaction: unknown, index: number) => {
+                    if (!transaction || typeof transaction !== 'object') throw new Error(`Invalid transaction ${index + 1}`);
+                    const item = transaction as Partial<Transaction>;
+                    const amount = Number(item.amount);
+                    if (!item.date || !Number.isFinite(Date.parse(item.date)) || typeof item.description !== 'string' || !Number.isFinite(amount)) {
+                        throw new Error(`Invalid transaction ${index + 1}`);
+                    }
+                    const type = item.type === 'credit' || item.type === 'debit' ? item.type : amount < 0 ? 'debit' : 'credit';
+                    return {
+                        ...item,
+                        id: typeof item.id === 'string' && item.id ? item.id : `imported-pdf-${index + 1}`,
+                        amount: type === 'debit' ? -Math.abs(amount) : Math.abs(amount),
+                        type,
+                        accountId: destinationAccountId || 'unmatched',
+                    } as Transaction;
+                });
+                setStatementAccountNumber(importedAccountNumber);
+                setMatchedAccountId(destinationAccountId);
+                setPreviewData(transactions);
+                toast({
+                    title: "Import Ready",
+                    description: destinationAccountId
+                        ? "Extracted transactions match a saved account. Review before saving."
+                        : "Preview only: the JSON has no matching saved account number, so saving is blocked.",
+                });
             } catch {
                 toast({ variant: 'destructive', title: "Import Error", description: "Invalid JSON format." });
             }
@@ -892,12 +954,20 @@ const PdfExtraction = () => {
             </div>
             {previewData.length > 0 && (
                 <div className="space-y-2 mt-4">
+                    <div className="rounded border p-3 text-sm">
+                        {statementAccountNumber && matchedAccountId ? (
+                            <p>Statement account verified against a saved account. Transactions will be added only to that account.</p>
+                        ) : (
+                            <p className="text-destructive">Account not verified: this statement/JSON does not match a saved account. Saving is disabled to prevent mixing different customers' transactions.</p>
+                        )}
+                        {statementAccountNumber && <p className="text-muted-foreground mt-1">Statement account ending in {statementAccountNumber.slice(-4)}.</p>}
+                    </div>
                     <p className="font-semibold">Preview ({previewData.length} new transactions):</p>
                     <div className="max-h-60 overflow-y-auto border rounded p-2 text-xs">
                         {previewData.map((tx, i) => <div key={i}>{new Date(tx.date).toLocaleDateString()} - {tx.description} - {tx.amount}</div>)}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <Button onClick={handleSavePreview}>Save to Store</Button>
+                        <Button onClick={handleSavePreview} disabled={!matchedAccountId || !statementAccountNumber}>Save to Store</Button>
                         <Button onClick={handleExport} variant="outline">Export as JSON</Button>
                     </div>
                 </div>
