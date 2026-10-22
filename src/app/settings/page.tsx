@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import { saveStateToIndexedDB, getStorageEstimate, requestPersistentStorage } from '@/lib/indexeddb';
 
 const AccountSettings = () => {
     const { state, dispatch } = useAppContext();
@@ -453,21 +454,53 @@ const DataManagement = () => {
     const { state, dispatch } = useAppContext();
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [storageInfo, setStorageInfo] = useState<{ usage?: number; quota?: number; persistent?: boolean }>({});
     const [settings, setSettings] = useState(state.settings);
 
+    const handleSaveSecurity = () => {
+        dispatch({ type: 'UPDATE_SETTINGS', payload: settings });
+        toast({ title: "Success", description: "Security settings updated." });
+    };
+
+    useEffect(() => {
+        async function fetchStorageInfo() {
+            const estimate = await getStorageEstimate();
+            let persistent = false;
+            if (navigator.storage && navigator.storage.persisted) {
+                persistent = await navigator.storage.persisted();
+            }
+            setStorageInfo({ ...estimate, persistent });
+        }
+        fetchStorageInfo();
+    }, [state]);
+
+    const handleRequestPersist = async () => {
+        const granted = await requestPersistentStorage();
+        if (granted) {
+            toast({ title: "Persistent Storage", description: "Storage persistence granted by browser." });
+        } else {
+            toast({ title: "Persistent Storage", description: "Storage persistence was not granted or is not supported." });
+        }
+        const persistent = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : false;
+        setStorageInfo(prev => ({ ...prev, persistent }));
+    };
 
     const handleExport = () => {
-        const stateToExport = JSON.parse(JSON.stringify(state));
-        // MPIN and TPIN are now included in the export as per latest request.
-        const json = JSON.stringify(stateToExport, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'pnb-ebank-state.json';
-        a.click();
-        URL.revokeObjectURL(url);
-        toast({ title: "Success", description: "State exported as JSON." });
+        try {
+            const stateToExport = JSON.parse(JSON.stringify(state));
+            const json = JSON.stringify(stateToExport, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'pnb-pro-state.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            toast({ title: "Success", description: "State exported as JSON." });
+        } catch (error) {
+            console.error("Export error:", error);
+            toast({ variant: 'destructive', title: "Error", description: "Failed to export state." });
+        }
     };
 
     const handleImportClick = () => {
@@ -478,14 +511,31 @@ const DataManagement = () => {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (event) => {
+            reader.onload = async (event) => {
                 try {
-                    const importedState = JSON.parse(event.target?.result as string);
+                    const text = event.target?.result as string;
+                    const importedState = JSON.parse(text);
+                    if (!importedState || typeof importedState !== 'object') {
+                        throw new Error("Invalid JSON structure.");
+                    }
+                    
+                    // Save to IndexedDB before reporting success
+                    await saveStateToIndexedDB(importedState);
+
                     dispatch({ type: 'SET_STATE_FROM_JSON', payload: importedState });
-                    toast({ title: "Success", description: "State imported successfully." });
-                } catch (error) {
-                    console.error("Failed to parse JSON file during state import:", error);
-                    toast({ variant: 'destructive', title: "Error", description: "Failed to parse JSON file." });
+                    toast({ title: "Success", description: "State imported and saved to IndexedDB successfully." });
+                    
+                    // Update storage estimate
+                    const estimate = await getStorageEstimate();
+                    setStorageInfo(prev => ({ ...prev, ...estimate }));
+                } catch (error: any) {
+                    console.error("Failed to parse or save imported JSON:", error);
+                    const isQuota = error?.name === 'QuotaExceededError' || error?.code === 22;
+                    toast({ 
+                        variant: 'destructive', 
+                        title: "Import Error", 
+                        description: isQuota ? "Storage quota exceeded. Please free up space." : "Failed to parse JSON file or save to IndexedDB." 
+                    });
                 }
             };
             reader.onerror = (error) => {
@@ -501,22 +551,39 @@ const DataManagement = () => {
         toast({ title: "Success", description: "Application state has been reset to default." });
     };
 
-    const handleSaveSecurity = () => {
-        dispatch({ type: 'UPDATE_SETTINGS', payload: settings });
-        toast({ title: "Success", description: "Security settings updated." });
+    const formatBytes = (bytes?: number) => {
+        if (!bytes && bytes !== 0) return 'Unknown';
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
-    
+
     return (
         <CardContent className="space-y-4">
             <Card>
                 <CardHeader>
-                    <CardTitle>Application Data</CardTitle>
+                    <CardTitle>Application Data &amp; IndexedDB Storage</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-3">
                     <Button onClick={handleExport} className="w-full">Export State to JSON</Button>
-                    <Button onClick={handleImportClick} variant="outline" className="w-full">Import State from JSON</Button>
+                    <Button onClick={handleImportClick} variant="outline" className="w-full">Import &amp; Save State to IndexedDB</Button>
                     <input type="file" ref={fileInputRef} onChange={handleImport} className="hidden" accept=".json" />
                     <Button onClick={handleReset} variant="destructive" className="w-full">Reset to Default State</Button>
+
+                    <div className="bg-muted p-3 rounded-lg text-xs space-y-1.5 mt-4">
+                        <p className="font-semibold text-foreground">IndexedDB Storage Status</p>
+                        <p className="text-muted-foreground">Approximate Usage: <span className="font-medium text-foreground">{formatBytes(storageInfo.usage)}</span></p>
+                        <p className="text-muted-foreground">Approximate Quota: <span className="font-medium text-foreground">{formatBytes(storageInfo.quota)}</span></p>
+                        <p className="text-muted-foreground">Persistence Status: <span className="font-medium text-foreground">{storageInfo.persistent ? 'Persistent (Protected)' : 'Standard (Subject to browser clearing)'}</span></p>
+                        {!storageInfo.persistent && (
+                            <Button size="sm" variant="secondary" onClick={handleRequestPersist} className="mt-2 w-full text-xs">
+                                Request Persistent Storage
+                            </Button>
+                        )}
+                        <p className="text-[10px] text-muted-foreground pt-1">Note: Data is securely stored locally in your browser&apos;s IndexedDB. Browser or user actions (like clearing site data) can still remove local data.</p>
+                    </div>
                 </CardContent>
             </Card>
              <Card className="mt-4">

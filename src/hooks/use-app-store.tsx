@@ -1,9 +1,9 @@
-
 "use client";
 
 import React, { createContext, useReducer, useContext, useEffect, useCallback } from 'react';
 import type { AppState, Action, Transaction, AccountDetails, ChatMessage, UpdateTransactionPayload } from '@/lib/types';
 import { defaultState } from '@/lib/mock-data';
+import { getStateFromIndexedDB, saveStateToIndexedDB, clearStateFromIndexedDB } from '@/lib/indexeddb';
 
 // Define a new context shape to include appData and setAppData
 const AppContext = createContext<{
@@ -36,45 +36,78 @@ const appReducer = (state: AppState, action: Action): AppState => {
       };
       const filteredTransactions = state.transactions.filter(tx => tx.id !== newTransaction.id);
       
-      return {
+      const newState = {
         ...state,
         transactions: [newTransaction, ...filteredTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
       };
+      saveStateToIndexedDB(newState).catch(err => console.error("Failed to save state to IndexedDB after adding transaction", err));
+      return newState;
     }
     case 'UPDATE_TRANSACTION': {
         const { originalId, updatedTransaction } = action.payload;
-        return {
+        const newState = {
             ...state,
             transactions: state.transactions.map(tx => tx.id === originalId ? updatedTransaction : tx)
         };
+        saveStateToIndexedDB(newState).catch(err => console.error("Failed to save state to IndexedDB after updating transaction", err));
+        return newState;
     }
-    case 'UPDATE_USER':
-        return {...state, user: {...state.user, ...action.payload}};
+    case 'UPDATE_USER': {
+        const newState = {...state, user: {...state.user, ...action.payload}};
+        saveStateToIndexedDB(newState).catch(err => console.error("Failed to save state to IndexedDB after updating user", err));
+        return newState;
+    }
     case 'UPDATE_ACCOUNT': {
         const updatedAccount = action.payload;
-        return {
+        const newState = {
             ...state,
             accounts: state.accounts.map(acc => acc.id === updatedAccount.id ? { ...acc, ...updatedAccount } : acc)
-        }
+        };
+        saveStateToIndexedDB(newState).catch(err => console.error("Failed to save state to IndexedDB after updating account", err));
+        return newState;
     }
-    case 'UPDATE_TRANSACTIONS':
-        return {...state, transactions: action.payload};
-    case 'ADD_PAYEE':
-        return {...state, payees: [...state.payees, action.payload]};
-    case 'DELETE_PAYEE':
-        return {...state, payees: state.payees.filter(p => p.id !== action.payload.id)};
-    case 'UPDATE_PAYEES':
-        return {...state, payees: action.payload};
-    case 'UPDATE_CHAT_HISTORY':
-        return {...state, chatHistory: action.payload};
-    case 'UPDATE_SETTINGS':
-        return { ...state, settings: { ...state.settings, ...action.payload } };
-    case 'SET_STATE_FROM_JSON':
-        return {...action.payload, isAuthenticated: true, isStateInitialized: true, loginPending: false };
-    case 'RESET_STATE':
+    case 'UPDATE_TRANSACTIONS': {
+        const newState = {...state, transactions: action.payload};
+        saveStateToIndexedDB(newState).catch(err => console.error("Failed to save state to IndexedDB after updating transactions", err));
+        return newState;
+    }
+    case 'ADD_PAYEE': {
+        const newState = {...state, payees: [...state.payees, action.payload]};
+        saveStateToIndexedDB(newState).catch(err => console.error("Failed to save state to IndexedDB after adding payee", err));
+        return newState;
+    }
+    case 'DELETE_PAYEE': {
+        const newState = {...state, payees: state.payees.filter(p => p.id !== action.payload.id)};
+        saveStateToIndexedDB(newState).catch(err => console.error("Failed to save state to IndexedDB after deleting payee", err));
+        return newState;
+    }
+    case 'UPDATE_PAYEES': {
+        const newState = {...state, payees: action.payload};
+        saveStateToIndexedDB(newState).catch(err => console.error("Failed to save state to IndexedDB after updating payees", err));
+        return newState;
+    }
+    case 'UPDATE_CHAT_HISTORY': {
+        const newState = {...state, chatHistory: action.payload};
+        saveStateToIndexedDB(newState).catch(err => console.error("Failed to save state to IndexedDB after updating chat history", err));
+        return newState;
+    }
+    case 'UPDATE_SETTINGS': {
+        const newState = { ...state, settings: { ...state.settings, ...action.payload } };
+        saveStateToIndexedDB(newState).catch(err => console.error("Failed to save state to IndexedDB after updating settings", err));
+        return newState;
+    }
+    case 'SET_STATE_FROM_JSON': {
+        const newState = {...action.payload, isAuthenticated: true, isStateInitialized: true, loginPending: false };
+        saveStateToIndexedDB(newState).catch(err => console.error("Failed to save imported JSON state to IndexedDB", err));
+        return newState;
+    }
+    case 'RESET_STATE': {
+        clearStateFromIndexedDB().catch(err => console.error("Failed to clear IndexedDB on reset", err));
         localStorage.removeItem(LOCAL_STORAGE_KEY);
-        // We don't need to show splash on reset, just reload the default state.
-        return {...defaultState, isAuthenticated: state.isAuthenticated, isStateInitialized: true, loginPending: false};
+        const newState = {...defaultState, isAuthenticated: state.isAuthenticated, isStateInitialized: true, loginPending: false};
+        saveStateToIndexedDB(newState).catch(err => console.error("Failed to save default state to IndexedDB on reset", err));
+        return newState;
+    }
     default:
       return state;
   }
@@ -83,39 +116,56 @@ const appReducer = (state: AppState, action: Action): AppState => {
 const LOCAL_STORAGE_KEY = 'pnb-ebank-prototype-state';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(appReducer, {...defaultState, isAuthenticated: false });
+  const [state, dispatch] = useReducer(appReducer, {...defaultState, isAuthenticated: false, isStateInitialized: false });
 
   useEffect(() => {
-    try {
-      const storedState = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (storedState) {
-        const parsedState: AppState = JSON.parse(storedState);
-        parsedState.settings = { ...defaultState.settings, ...parsedState.settings };
-        parsedState.loginPending = false; // Ensure loginPending is reset on load
-        parsedState.isLoggingOut = false; // Ensure isLoggingOut is reset on load
-        // Crucially, don't carry over auth state from storage directly without re-auth in a real app
-        // But for this prototype, we re-hydrate it.
-        dispatch({ type: 'INITIALIZE_STATE', payload: parsedState });
-      } else {
-        dispatch({ type: 'INITIALIZE_STATE', payload: defaultState });
+    let isMounted = true;
+    async function initializeApp() {
+      try {
+        const idbState = await getStateFromIndexedDB();
+        if (!isMounted) return;
+
+        if (idbState) {
+          idbState.settings = { ...defaultState.settings, ...idbState.settings };
+          idbState.loginPending = false;
+          idbState.isLoggingOut = false;
+          dispatch({ type: 'INITIALIZE_STATE', payload: idbState });
+        } else {
+          // Check localStorage as fallback if IDB is empty
+          const storedState = localStorage.getItem(LOCAL_STORAGE_KEY);
+          if (storedState) {
+            const parsedState: AppState = JSON.parse(storedState);
+            parsedState.settings = { ...defaultState.settings, ...parsedState.settings };
+            parsedState.loginPending = false;
+            parsedState.isLoggingOut = false;
+            dispatch({ type: 'INITIALIZE_STATE', payload: parsedState });
+            await saveStateToIndexedDB(parsedState);
+          } else {
+            dispatch({ type: 'INITIALIZE_STATE', payload: defaultState });
+            await saveStateToIndexedDB(defaultState);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load initial state from IndexedDB/localStorage:", error);
+        if (isMounted) {
+          dispatch({ type: 'INITIALIZE_STATE', payload: defaultState });
+        }
       }
-    } catch (error) {
-      console.error("Failed to parse state from localStorage", error);
-      dispatch({ type: 'INITIALIZE_STATE', payload: defaultState });
     }
+    initializeApp();
+    return () => { isMounted = false; };
   }, []);
 
   useEffect(() => {
     if (state.isStateInitialized) {
         try {
-          // Create a copy of the state to save, but ensure isAuthenticated is not persisted as true if logged out.
           const stateToSave = { 
             ...state,
-            isAuthenticated: state.isAuthenticated, // Persist the current auth state
+            isAuthenticated: state.isAuthenticated,
           };
-          // PINs are now persisted so changes made in the settings stick across reloads.
-          // They are only removed during the manual JSON export feature.
-
+          saveStateToIndexedDB(stateToSave).catch(err => {
+            console.error("Failed to persist state update to IndexedDB", err);
+          });
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
         } catch (error) {
           console.error("Failed to save state to localStorage", error);
@@ -138,7 +188,6 @@ export const useAppContext = () => {
   return context;
 };
 
-// New hook for compatibility with the provided success page code
 export const useAppStore = () => {
     const context = useContext(AppContext);
     if (context === undefined) {
@@ -147,7 +196,6 @@ export const useAppStore = () => {
     return context;
 }
 
-// Selector hook to get only a specific part of the state
 export const useAppState = <T,>(selector: (state: AppState) => T): T => {
     const { state } = useAppContext();
     return selector(state);
