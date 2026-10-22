@@ -190,7 +190,7 @@ ${isVerified ? `User's Name: ${user.name}` : "The user's name is currently unkno
             }
         });
 
-        let output = response.output;
+        const output = response.output;
         if (!output) {
              // Handle cases where the model doesn't return structured JSON, e.g., just text
              const textResponse = response.text;
