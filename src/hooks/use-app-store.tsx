@@ -63,6 +63,13 @@ const appReducer = (state: AppState, action: Action): AppState => {
         saveStateToIndexedDB(newState).catch(err => console.error("Failed to save state to IndexedDB after updating user", err));
         return newState;
     }
+    case 'ADD_ACCOUNT': {
+        if (state.accounts.some(account => account.id === action.payload.id ||
+            account.accountNumber.replace(/\D/g, '') === action.payload.accountNumber.replace(/\D/g, ''))) return state;
+        const newState = { ...state, accounts: [...state.accounts, action.payload] };
+        saveStateToIndexedDB(newState).catch(err => console.error("Failed to persist new account", err));
+        return newState;
+    }
     case 'UPDATE_ACCOUNT': {
         const updatedAccount = action.payload;
         const newState = {

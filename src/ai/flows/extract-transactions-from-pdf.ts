@@ -1,11 +1,13 @@
-import * as pdfjsLib from 'pdfjs-dist';
 import type { Transaction } from '@/lib/types';
 
-// Browser-side PDF text extraction. No AI model or server API is used.
-// Scanned/image-only PDFs need OCR, which is not implemented in this parser.
-pdfjsLib.GlobalWorkerOptions.workerSrc = typeof window === 'undefined'
-  ? new URL('../../../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs', import.meta.url).toString()
-  : new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+// Load PDF.js only when extraction is requested; eager worker initialization
+// can crash iOS browsers before Settings renders.
+async function loadPdfJs() {
+  const pdfjsLib = await import('pdfjs-dist');
+  if (typeof window !== 'undefined') pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+  return pdfjsLib;
+}
+// Scanned/image-only PDFs need OCR; unsupported layouts are reported.
 
 const DATE_PATTERN = /^(\d{2}[/-]\d{2}[/-]\d{4}|\d{4}[/-]\d{2}[/-]\d{2})$/;
 const AMOUNT_PATTERN = /^\(?-?\d[\d,]*(?:\.\d{1,2})?\)?$/;
@@ -44,6 +46,7 @@ function parseReference(description: string): string | undefined {
 export async function extractStatementAccountNumberFromPdf(pdfDataUri: string): Promise<string | null> {
   const base64 = pdfDataUri.includes(',') ? pdfDataUri.slice(pdfDataUri.indexOf(',') + 1) : pdfDataUri;
   const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+  const pdfjsLib = await loadPdfJs();
   const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
   const page = await pdf.getPage(1);
   const content = await page.getTextContent();
@@ -54,11 +57,70 @@ export async function extractStatementAccountNumberFromPdf(pdfDataUri: string): 
   return match?.[1] ?? null;
 }
 
+export interface ExtractedStatementDetails {
+  accountNumber: string | null;
+  accountHolder: string;
+  customerAddress: string;
+  customerCity: string;
+  customerPin: string;
+  branchName: string;
+  branchAddress: string;
+  branchCity: string;
+  branchPin: string;
+  ifsc: string;
+  accountType: 'Savings' | 'Current';
+  closingBalance: number | null;
+}
+
+export async function extractStatementDetailsFromPdf(pdfDataUri: string): Promise<ExtractedStatementDetails> {
+  const base64 = pdfDataUri.includes(',') ? pdfDataUri.slice(pdfDataUri.indexOf(',') + 1) : pdfDataUri;
+  const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+  const pdfjsLib = await loadPdfJs();
+  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+  const pageTexts: string[] = [];
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    pageTexts.push(content.items.map(item => 'str' in item && typeof item.str === 'string' ? item.str : '').join(' '));
+  }
+  const text = pageTexts.join('\n');
+  const accountMatch = text.match(/(?:Statement\s+of\s+Account|Account\s+(?:Number|No\.?))\s*:?\s*([0-9][0-9\s-]{5,})/i);
+  const get = (labels: string[]) => {
+    for (const label of labels) {
+      const escaped = label.replace(/[.*+?^()|[\]\\]/g, '\\$&');
+      const match = text.match(new RegExp(escaped + '\\s*[:\\-]?\\s*([^\\n]{2,100})', 'i'));
+      if (match && match[1]) return match[1].trim().replace(/\s{2,}/g, ' ');
+    }
+    return '';
+  };
+  const pinMatch = text.match(/(?:PIN\s*(?:Code)?|Postal\s+Code)\s*[:\-]?\s*(\d{6})/i);
+  const branchPinMatch = text.match(/Branch[\s\S]{0,160}?(?:PIN|Postal\s+Code)\s*[:\-]?\s*(\d{6})/i);
+  const ifscMatch = text.match(/\bIFSC\s*(?:Code)?\s*[:\-]?\s*([A-Z]{4}0[A-Z0-9]{6})\b/i);
+  const balanceMatch = text.match(/(?:closing|available|ledger)\s+balance(?:\s+as\s+on\s+[^:\n]+)?\s*[:\-]?\s*(?:INR|Rs\.?|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i)
+    || text.match(/balance\s+at\s+the\s+end\s+of\s+the\s+statement\s*[:\-]?\s*(?:INR|Rs\.?|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+  const balance = balanceMatch?.[1] ? Number(balanceMatch[1].replace(/,/g, '')) : null;
+  return {
+    accountNumber: accountMatch?.[1]?.replace(/\D/g, '') ?? null,
+    accountHolder: get(['Account Holder Name', 'Customer Name', 'Name of Customer', 'Name']),
+    customerAddress: get(['Customer Address', 'Communication Address', 'Mailing Address', 'Address']),
+    customerCity: get(['Customer City', 'City']),
+    customerPin: pinMatch?.[1] ?? '',
+    branchName: get(['Branch Name', 'Branch']),
+    branchAddress: get(['Branch Address']),
+    branchCity: get(['Branch City']),
+    branchPin: branchPinMatch?.[1] ?? '',
+    ifsc: ifscMatch?.[1] ?? '',
+    accountType: /\bcurrent\s+account\b/i.test(text) ? 'Current' : 'Savings',
+    closingBalance: balance !== null && Number.isFinite(balance) ? balance : null,
+  };
+}
+
 export async function extractTransactionsFromPdf(pdfDataUri: string, accountId = 'unknown'): Promise<Transaction[]> {
   try {
     const base64 = pdfDataUri.includes(',') ? pdfDataUri.slice(pdfDataUri.indexOf(',') + 1) : pdfDataUri;
     const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
-    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+    const pdfjsLib = await loadPdfJs();
+  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
     const transactions: Transaction[] = [];
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {

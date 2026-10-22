@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import type { Payee, Transaction, CarouselBanner, AppSettings, IconAssets, ChatMessage, AccountDetails, AppState } from '@/lib/types';
-import { extractStatementAccountNumberFromPdf, extractTransactionsFromPdf } from '@/ai/flows/extract-transactions-from-pdf';
+import { extractStatementDetailsFromPdf, extractTransactionsFromPdf, type ExtractedStatementDetails } from '@/ai/flows/extract-transactions-from-pdf';
 import { Trash2, Edit, ArrowLeft, Home } from 'lucide-react';
 import Link from 'next/link';
 import { Textarea } from '@/components/ui/textarea';
@@ -839,6 +839,7 @@ const PdfExtraction = () => {
     const [previewData, setPreviewData] = useState<Transaction[]>([]);
     const [statementAccountNumber, setStatementAccountNumber] = useState<string | null>(null);
     const [matchedAccountId, setMatchedAccountId] = useState<string | null>(null);
+    const [statementDetails, setStatementDetails] = useState<ExtractedStatementDetails | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
     const normalizeAccountNumber = (value: string | null | undefined) => (value || '').replace(/\D/g, '');
     const findMatchingAccountId = (accountNumber: string | null | undefined) => {
@@ -853,6 +854,7 @@ const PdfExtraction = () => {
             setPreviewData([]);
             setStatementAccountNumber(null);
             setMatchedAccountId(null);
+            setStatementDetails(null);
         }
     };
 
@@ -864,11 +866,13 @@ const PdfExtraction = () => {
             reader.onload = async (event) => {
                 try {
                     const dataUri = event.target?.result as string;
-                    const [accountNumber, results] = await Promise.all([
-                        extractStatementAccountNumberFromPdf(dataUri),
+                    const [details, results] = await Promise.all([
+                        extractStatementDetailsFromPdf(dataUri),
                         extractTransactionsFromPdf(dataUri),
                     ]);
+                    const accountNumber = details.accountNumber;
                     const destinationAccountId = findMatchingAccountId(accountNumber);
+                    setStatementDetails(details);
                     // Match existing transactions one-for-one so repeated legitimate payments are preserved.
                     const alreadyMatched = new Set<number>();
                     const uniqueResults = results.filter(newTx => {
@@ -918,24 +922,38 @@ const PdfExtraction = () => {
     };
 
     const handleSavePreview = async () => {
-        const destinationAccount = state.accounts.find(account => account.id === matchedAccountId);
-        if (!statementAccountNumber || !destinationAccount ||
-            normalizeAccountNumber(destinationAccount.accountNumber) !== normalizeAccountNumber(statementAccountNumber)) {
-            toast({
-                variant: 'destructive',
-                title: "Account mismatch",
-                description: "Choose a matching app backup/account before saving these transactions.",
-            });
+        if (!statementAccountNumber) {
+            toast({ variant: 'destructive', title: 'Account number not found', description: 'This PDF does not expose an account number, so a safe account record cannot be created.' });
             return;
         }
-        for (const tx of previewData) {
-            dispatch({ type: 'ADD_TRANSACTION', payload: { ...tx, accountId: destinationAccount.id } });
+        const existingAccount = state.accounts.find(account => normalizeAccountNumber(account.accountNumber) === normalizeAccountNumber(statementAccountNumber));
+        const destinationAccountId = existingAccount?.id || ('statement-' + normalizeAccountNumber(statementAccountNumber));
+        const template = existingAccount || state.accounts[0];
+        if (!template) {
+            toast({ variant: 'destructive', title: 'Cannot save statement', description: 'No account template is available.' });
+            return;
         }
-        toast({ title: "Success", description: `${previewData.length} transactions saved to the matching account.` });
-        setPreviewData([]);
-        setFile(null);
-        setStatementAccountNumber(null);
-        setMatchedAccountId(null);
+        const details = statementDetails;
+        const destinationAccount: AccountDetails = existingAccount || {
+            ...template, id: destinationAccountId, userId: state.user.id || destinationAccountId,
+            accountNumber: statementAccountNumber, type: details?.accountType || 'Savings',
+            balance: details?.closingBalance ?? 0, accountHolder: details?.accountHolder || '',
+            customerAddress: details?.customerAddress || '', customerCity: details?.customerCity || '',
+            customerPin: details?.customerPin || '', branchName: details?.branchName || '',
+            branchAddress: details?.branchAddress || '', branchCity: details?.branchCity || '',
+            branchPin: details?.branchPin || '', ifsc: details?.ifsc || '', ckycNumber: '', nominee: '',
+            currencySymbol: template.currencySymbol || state.settings.currencySymbol,
+        };
+        const transactions = previewData.map((tx, index) => ({
+            ...tx, id: destinationAccountId + '-' + (tx.id || index) + '-' + index, accountId: destinationAccountId,
+        }));
+        if (!existingAccount) dispatch({ type: 'ADD_ACCOUNT', payload: destinationAccount });
+        else if (details?.closingBalance !== null && details?.closingBalance !== undefined) {
+            dispatch({ type: 'UPDATE_ACCOUNT', payload: { ...existingAccount, balance: details.closingBalance } });
+        }
+        dispatch({ type: 'UPDATE_TRANSACTIONS', payload: [...transactions, ...state.transactions] });
+        toast({ title: 'Statement saved', description: transactions.length + ' transactions saved to account ending ' + statementAccountNumber.slice(-4) + (details?.closingBalance !== null && details?.closingBalance !== undefined ? '; closing balance ' + details.closingBalance : '') + '.' });
+        setPreviewData([]); setFile(null); setStatementAccountNumber(null); setMatchedAccountId(null); setStatementDetails(null);
     };
 
     const handleExport = () => {
@@ -979,6 +997,7 @@ const PdfExtraction = () => {
                 });
                 setStatementAccountNumber(importedAccountNumber);
                 setMatchedAccountId(destinationAccountId);
+                setStatementDetails(null);
                 setPreviewData(transactions);
                 toast({
                     title: "Import Ready",
@@ -1008,16 +1027,20 @@ const PdfExtraction = () => {
                         {statementAccountNumber && matchedAccountId ? (
                             <p>Statement account verified against a saved account. Transactions will be added only to that account.</p>
                         ) : (
-                            <p className="text-destructive">Account not verified: this statement/JSON does not match a saved account. Saving is disabled to prevent mixing different customers&apos; transactions.</p>
+                            <p className="text-muted-foreground">This statement will be saved to a separate account record, so its transactions and extracted details stay separate from other customers.</p>
                         )}
                         {statementAccountNumber && <p className="text-muted-foreground mt-1">Statement account ending in {statementAccountNumber.slice(-4)}.</p>}
+                        {statementDetails?.accountHolder && <p>Account holder: {statementDetails.accountHolder}</p>}
+                        {statementDetails?.customerAddress && <p>Address: {statementDetails.customerAddress}</p>}
+                        {statementDetails?.customerPin && <p>PIN code: {statementDetails.customerPin}</p>}
+                        {statementDetails?.closingBalance !== null && statementDetails?.closingBalance !== undefined && <p>Closing balance: {statementDetails.closingBalance}</p>}
                     </div>
                     <p className="font-semibold">Preview ({previewData.length} new transactions):</p>
                     <div className="max-h-60 overflow-y-auto border rounded p-2 text-xs">
                         {previewData.map((tx, i) => <div key={i}>{new Date(tx.date).toLocaleDateString()} - {tx.description} - {tx.amount}</div>)}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <Button onClick={handleSavePreview} disabled={!matchedAccountId || !statementAccountNumber}>Save to Store</Button>
+                        <Button onClick={handleSavePreview} disabled={!statementAccountNumber}>Save to Store</Button>
                         <Button onClick={handleExport} variant="outline">Export as JSON</Button>
                     </div>
                 </div>

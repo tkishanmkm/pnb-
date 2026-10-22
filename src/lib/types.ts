@@ -179,6 +179,7 @@ export type Action =
   | { type: 'UPDATE_TRANSACTION'; payload: UpdateTransactionPayload }
   | { type: 'UPDATE_USER'; payload: Partial<User> }
   | { type: 'UPDATE_ACCOUNT'; payload: AccountDetails }
+  | { type: 'ADD_ACCOUNT'; payload: AccountDetails }
   | { type: 'UPDATE_TRANSACTIONS'; payload: Transaction[] }
   | { type: 'ADD_PAYEE'; payload: Payee }
   | { type: 'DELETE_PAYEE'; payload: {id: string} }
