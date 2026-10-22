@@ -29,10 +29,16 @@ const appReducer = (state: AppState, action: Action): AppState => {
     case 'CLEAR_TRANSFER':
       return { ...state, currentTransfer: {} };
     case 'ADD_TRANSACTION': {
+      const requestedAccountId = action.payload.accountId;
+      const accountId = requestedAccountId && state.accounts.some(account => account.id === requestedAccountId)
+        ? requestedAccountId
+        : state.accounts[0]?.id;
+      if (!accountId) return state;
+
       const newTransaction: Transaction = {
           ...action.payload,
           id: action.payload.id || `txn-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-          accountId: state.accounts[0]?.id ?? 'unknown',
+          accountId,
       };
       const filteredTransactions = state.transactions.filter(tx => tx.id !== newTransaction.id);
       
