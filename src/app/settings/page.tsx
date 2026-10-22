@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
+import { format } from 'date-fns';
 import { useAppContext } from '@/hooks/use-app-store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -700,6 +701,7 @@ const PdfExtraction = () => {
     const [file, setFile] = useState<File | null>(null);
     const [isExtracting, setIsExtracting] = useState(false);
     const [previewData, setPreviewData] = useState<Transaction[]>([]);
+    const importInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -718,8 +720,8 @@ const PdfExtraction = () => {
                     const results = await extractTransactionsFromPdf(dataUri);
                     const uniqueResults = results.filter(newTx => 
                         !state.transactions.some(existingTx => 
-                            existingTx.reference === newTx.reference || 
-                            (existingTx.date === newTx.date && existingTx.amount === newTx.amount && existingTx.description === newTx.description)
+                            (Boolean(existingTx.reference) && Boolean(newTx.reference) && existingTx.reference === newTx.reference) || 
+                            (existingTx.date.slice(0, 10) === newTx.date.slice(0, 10) && Math.abs(existingTx.amount) === Math.abs(newTx.amount) && existingTx.description.trim().toLowerCase() === newTx.description.trim().toLowerCase())
                         )
                     );
                     setPreviewData(uniqueResults);
@@ -875,9 +877,9 @@ const SettingsPageContent = () => {
                     <TabsContent value="ai" className="mt-4">
                         <Card>
                              <CardHeader>
-                                <CardTitle>AI PDF Extraction</CardTitle>
+                                <CardTitle>PDF Extraction</CardTitle>
                                 <CardDescription>
-                                    This tool uses AI to extract transactions from a PDF bank statement and add them to your history.
+                                    Extract text from supported PDF statements locally in your browser, preview transactions, and import or export JSON. Scanned PDFs require OCR support, which is not yet available in this version.
                                 </CardDescription>
                             </CardHeader>
                             <PdfExtraction />
