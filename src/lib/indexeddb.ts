@@ -19,35 +19,40 @@ export async function openDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveStateToIndexedDB(state: any): Promise<void> {
-  try {
+// Serialize writes so rapid updates cannot finish out of order.
+let writeQueue: Promise<void> = Promise.resolve();
+
+export function saveStateToIndexedDB(state: unknown): Promise<void> {
+  const write = writeQueue.then(async () => {
     const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(state, STATE_KEY);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
-    console.error("IndexedDB write error:", error);
-    throw error;
-  }
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        transaction.objectStore(STORE_NAME).put(state, STATE_KEY);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error ?? new Error('IndexedDB transaction failed.'));
+        transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB transaction aborted.'));
+      });
+    } finally {
+      db.close();
+    }
+  });
+  writeQueue = write.catch(() => undefined);
+  return write;
 }
 
 export async function getStateFromIndexedDB(): Promise<any | null> {
+  const db = await openDB();
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
+    return await new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(STATE_KEY);
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
+      const request = transaction.objectStore(STORE_NAME).get(STATE_KEY);
+      request.onsuccess = () => resolve(request.result ?? null);
+      request.onerror = () => reject(request.error ?? new Error('IndexedDB read failed.'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB read transaction aborted.'));
     });
-  } catch (error) {
-    console.error("IndexedDB read error:", error);
-    return null;
+  } finally {
+    db.close();
   }
 }
 
