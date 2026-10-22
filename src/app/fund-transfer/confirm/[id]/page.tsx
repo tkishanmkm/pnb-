@@ -14,7 +14,7 @@ import { format } from 'date-fns';
 import { cn, formatCurrency } from '@/lib/utils';
 import { RupeeIcon } from '@/components/rupee-icon';
 
-const numberToWords = require('number-to-words');
+import * as numberToWords from 'number-to-words';
 
 type Step = 'summary' | 'tpin';
 
