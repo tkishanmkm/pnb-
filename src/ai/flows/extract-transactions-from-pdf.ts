@@ -41,6 +41,20 @@ function parseReference(description: string): string | undefined {
   return undefined;
 }
 
+export async function extractStatementAccountNumberFromPdf(pdfDataUri: string): Promise<string | null> {
+  const base64 = pdfDataUri.includes(',') ? pdfDataUri.slice(pdfDataUri.indexOf(',') + 1) : pdfDataUri;
+  const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+  const page = await pdf.getPage(1);
+  const content = await page.getTextContent();
+  const text = content.items
+    .filter((item: any) => typeof item.str === 'string')
+    .map((item: any) => item.str)
+    .join(' ');
+  const match = text.match(/Statement\\s+of\\s+Account\\s*:?\\s*([0-9]{6,})/i);
+  return match?.[1] ?? null;
+}
+
 export async function extractTransactionsFromPdf(pdfDataUri: string, accountId = 'unknown'): Promise<Transaction[]> {
   try {
     const base64 = pdfDataUri.includes(',') ? pdfDataUri.slice(pdfDataUri.indexOf(',') + 1) : pdfDataUri;
