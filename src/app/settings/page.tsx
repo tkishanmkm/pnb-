@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import type { Payee, Transaction, CarouselBanner, AppSettings, IconAssets, ChatMessage, AccountDetails } from '@/lib/types';
 import { extractTransactionsFromPdf } from '@/ai/flows/extract-transactions-from-pdf';
-import { Trash2, Edit } from 'lucide-react';
+import { Trash2, Edit, ArrowLeft, Home } from 'lucide-react';
+import Link from 'next/link';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -711,74 +712,85 @@ const PdfExtraction = () => {
 
 const SettingsPageContent = () => {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const tab = searchParams.get('tab') || 'account';
 
     return (
-        <div className="p-4">
-            <h1 className="text-2xl font-bold font-headline mb-4">Admin Control Panel</h1>
-            <Tabs defaultValue={tab} className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="account">Account</TabsTrigger>
-                    <TabsTrigger value="data">Data</TabsTrigger>
-                    <TabsTrigger value="assets">Assets</TabsTrigger>
-                    <TabsTrigger value="ai">AI Tools</TabsTrigger>
-                </TabsList>
-                <TabsContent value="account">
-                    <Card>
-                        <CardHeader><CardTitle>Account &amp; Security</CardTitle></CardHeader>
-                        <AccountSettings />
-                    </Card>
-                    <Card className="mt-4">
-                        <CardHeader><CardTitle>Payee Management</CardTitle></CardHeader>
-                        <PayeeSettings />
-                    </Card>
-                </TabsContent>
-                <TabsContent value="data">
-                    <Card>
-                         <CardHeader><CardTitle>Transaction Management</CardTitle></CardHeader>
-                        <TransactionSettings />
-                    </Card>
-                     <Card className="mt-4">
-                        <CardHeader><CardTitle>Chat History Management</CardTitle></CardHeader>
-                        <ChatHistorySettings />
-                    </Card>
-                    <Card className="mt-4">
-                         <CardHeader><CardTitle>Data Management</CardTitle></CardHeader>
-                        <DataManagement />
-                    </Card>
-                </TabsContent>
-                 <TabsContent value="assets">
-                    <Card>
-                         <CardHeader>
-                            <CardTitle>Image Assets</CardTitle>
-                             <CardDescription>
-                                Upload images for various parts of the application.
-                            </CardDescription>
-                        </CardHeader>
-                        <AssetSettings />
-                    </Card>
-                     <Card className="mt-4">
-                         <CardHeader>
-                            <CardTitle>Icon Assets</CardTitle>
-                             <CardDescription>
-                                Provide custom SVG code to override default dashboard and navigation icons.
-                            </CardDescription>
-                        </CardHeader>
-                        <IconAssetsSettings />
-                    </Card>
-                </TabsContent>
-                <TabsContent value="ai">
-                    <Card>
-                         <CardHeader>
-                            <CardTitle>AI PDF Extraction</CardTitle>
-                            <CardDescription>
-                                This tool uses AI to extract transactions from a PDF bank statement and add them to your history.
-                            </CardDescription>
-                        </CardHeader>
-                        <PdfExtraction />
-                    </Card>
-                </TabsContent>
-            </Tabs>
+        <div className="flex flex-col h-screen bg-gray-50">
+            <header className="bg-primary text-primary-foreground p-4 flex items-center justify-between shadow-md sticky top-0 z-20">
+                <button onClick={() => router.back()}>
+                    <ArrowLeft className="h-6 w-6 text-accent" />
+                </button>
+                <h1 className="text-xl font-semibold">Settings</h1>
+                <Link href="/dashboard">
+                     <Home className="h-6 w-6 text-accent" />
+                </Link>
+            </header>
+            <main className="flex-1 p-4 overflow-y-auto space-y-4">
+                <Tabs defaultValue={tab} className="w-full">
+                    <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="account">Account</TabsTrigger>
+                        <TabsTrigger value="data">Data</TabsTrigger>
+                        <TabsTrigger value="assets">Assets</TabsTrigger>
+                        <TabsTrigger value="ai">AI Tools</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="account" className="mt-4">
+                        <Card>
+                            <CardHeader><CardTitle>Account &amp; Security</CardTitle></CardHeader>
+                            <AccountSettings />
+                        </Card>
+                        <Card className="mt-4">
+                            <CardHeader><CardTitle>Payee Management</CardTitle></CardHeader>
+                            <PayeeSettings />
+                        </Card>
+                    </TabsContent>
+                    <TabsContent value="data" className="mt-4">
+                        <Card>
+                             <CardHeader><CardTitle>Transaction Management</CardTitle></CardHeader>
+                            <TransactionSettings />
+                        </Card>
+                         <Card className="mt-4">
+                            <CardHeader><CardTitle>Chat History Management</CardTitle></CardHeader>
+                            <ChatHistorySettings />
+                        </Card>
+                        <Card className="mt-4">
+                             <CardHeader><CardTitle>Data Management</CardTitle></CardHeader>
+                            <DataManagement />
+                        </Card>
+                    </TabsContent>
+                     <TabsContent value="assets" className="mt-4">
+                        <Card>
+                             <CardHeader>
+                                <CardTitle>Image Assets</CardTitle>
+                                 <CardDescription>
+                                    Upload images for various parts of the application.
+                                </CardDescription>
+                            </CardHeader>
+                            <AssetSettings />
+                        </Card>
+                         <Card className="mt-4">
+                             <CardHeader>
+                                <CardTitle>Icon Assets</CardTitle>
+                                 <CardDescription>
+                                    Provide custom SVG code to override default dashboard and navigation icons.
+                                </CardDescription>
+                            </CardHeader>
+                            <IconAssetsSettings />
+                        </Card>
+                    </TabsContent>
+                    <TabsContent value="ai" className="mt-4">
+                        <Card>
+                             <CardHeader>
+                                <CardTitle>AI PDF Extraction</CardTitle>
+                                <CardDescription>
+                                    This tool uses AI to extract transactions from a PDF bank statement and add them to your history.
+                                </CardDescription>
+                            </CardHeader>
+                            <PdfExtraction />
+                        </Card>
+                    </TabsContent>
+                </Tabs>
+            </main>
         </div>
     );
 }
