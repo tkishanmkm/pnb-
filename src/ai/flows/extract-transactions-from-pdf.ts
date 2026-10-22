@@ -6,7 +6,7 @@ import type { Transaction } from '@/lib/types';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const DATE_PATTERN = /^(\d{2}[/-]\d{2}[/-]\d{4}|\d{4}[/-]\d{2}[/-]\d{2})$/;
-const AMOUNT_PATTERN = /^\(?-?\d[\d,]*\.\d{2}\)?$/;
+const AMOUNT_PATTERN = /^\(?-?\d[\d,]*(?:\.\d{1,2})?\)?$/;
 
 function parseDate(value: string): string | null {
   const trimmed = value.trim();
@@ -48,10 +48,31 @@ export async function extractTransactionsFromPdf(pdfDataUri: string, accountId =
         row.cells.push(item);
       }
 
+      let currentTransaction: Transaction | undefined;
+      let lastTransactionRowY: number | undefined;
+
       for (const row of rows) {
         const cells = row.cells.sort((a, b) => a.x - b.x);
         const dateIndex = cells.findIndex(cell => Boolean(parseDate(cell.text)));
-        if (dateIndex < 0) continue;
+        if (dateIndex < 0) {
+          // Bank statements commonly wrap long remarks onto the next visual line.
+          // Append only nearby text from the remarks column; never carry it across
+          // transaction rows or page boundaries.
+          if (currentTransaction && lastTransactionRowY !== undefined &&
+              Math.abs(row.y - lastTransactionRowY) <= 12) {
+            const continuation = cells
+              .filter(cell => cell.x >= 330)
+              .map(cell => cell.text)
+              .filter(text => text && !/^page\\s+\\d+$/i.test(text) && !/^date:/i.test(text))
+              .join(' ')
+              .trim();
+            if (continuation) {
+              currentTransaction.description = `${currentTransaction.description} ${continuation}`.trim();
+              lastTransactionRowY = row.y;
+            }
+          }
+          continue;
+        }
         const date = parseDate(cells[dateIndex].text);
         if (!date) continue;
         const trailing = cells.slice(dateIndex + 1).map(cell => cell.text);
@@ -73,10 +94,13 @@ export async function extractTransactionsFromPdf(pdfDataUri: string, accountId =
         const key = [date.slice(0, 10), amount, description.toLowerCase()].join('|');
         if (seen.has(key)) continue;
         seen.add(key);
-        transactions.push({
+        const transaction: Transaction = {
           id: `pdf-${pageNumber}-${transactions.length}-${key.replace(/[^a-z0-9|.-]/gi, '').slice(0, 40)}`,
           accountId, date, description, amount, type: debit ? 'debit' : 'credit',
-        });
+        };
+        transactions.push(transaction);
+        currentTransaction = transaction;
+        lastTransactionRowY = row.y;
       }
     }
     if (!transactions.length) {
