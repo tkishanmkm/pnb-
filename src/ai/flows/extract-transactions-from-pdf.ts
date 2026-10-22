@@ -30,7 +30,6 @@ export async function extractTransactionsFromPdf(pdfDataUri: string, accountId =
     const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
     const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
     const transactions: Transaction[] = [];
-    const seen = new Set<string>();
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
       const page = await pdf.getPage(pageNumber);
@@ -91,11 +90,10 @@ export async function extractTransactionsFromPdf(pdfDataUri: string, accountId =
         const direction = typeIndex >= 0 ? trailing[typeIndex].toLowerCase() : '';
         const debit = direction === 'dr' || direction === 'debit' || (!direction && amountCell.amount < 0);
         const amount = Math.abs(amountCell.amount) * (debit ? -1 : 1);
-        const key = [date.slice(0, 10), amount, description.toLowerCase()].join('|');
-        if (seen.has(key)) continue;
-        seen.add(key);
+        // Keep repeated same-day payments: identical descriptions and amounts can be
+        // legitimate separate bank transactions, not extraction duplicates.
         const transaction: Transaction = {
-          id: `pdf-${pageNumber}-${transactions.length}-${key.replace(/[^a-z0-9|.-]/gi, '').slice(0, 40)}`,
+          id: `pdf-${pageNumber}-${transactions.length}-${date.slice(0, 10)}`,
           accountId, date, description, amount, type: debit ? 'debit' : 'credit',
         };
         transactions.push(transaction);
