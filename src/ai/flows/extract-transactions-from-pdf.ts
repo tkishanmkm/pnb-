@@ -48,8 +48,7 @@ export async function extractStatementAccountNumberFromPdf(pdfDataUri: string): 
   const page = await pdf.getPage(1);
   const content = await page.getTextContent();
   const text = content.items
-    .filter((item: any) => typeof item.str === 'string')
-    .map((item: any) => item.str)
+    .map(item => 'str' in item && typeof item.str === 'string' ? item.str : '')
     .join(' ');
   const match = text.match(/Statement\s+of\s+Account\s*:?\s*([0-9]{6,})/i);
   return match?.[1] ?? null;
@@ -66,9 +65,13 @@ export async function extractTransactionsFromPdf(pdfDataUri: string, accountId =
       const page = await pdf.getPage(pageNumber);
       const content = await page.getTextContent();
       const items = content.items
-        .filter((item: any) => typeof item.str === 'string' && Array.isArray(item.transform))
-        .map((item: any) => ({ text: item.str.trim(), x: item.transform[4], y: item.transform[5] }))
-        .filter(item => item.text.length > 0)
+        .map(item => {
+          if (!('str' in item) || typeof item.str !== 'string' ||
+              !('transform' in item) || !Array.isArray(item.transform)) return null;
+          const transform = item.transform as number[];
+          return { text: item.str.trim(), x: transform[4] ?? 0, y: transform[5] ?? 0 };
+        })
+        .filter((item): item is { text: string; x: number; y: number } => item !== null && item.text.length > 0)
         .sort((a, b) => Math.abs(b.y - a.y) > 2 ? b.y - a.y : a.x - b.x);
 
       const rows: Array<{ y: number; cells: typeof items }> = [];
