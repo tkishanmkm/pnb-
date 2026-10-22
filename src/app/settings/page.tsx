@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import type { Payee, Transaction, CarouselBanner, AppSettings, IconAssets, ChatMessage, AccountDetails } from '@/lib/types';
+import type { Payee, Transaction, CarouselBanner, AppSettings, IconAssets, ChatMessage, AccountDetails, AppState } from '@/lib/types';
 import { extractTransactionsFromPdf } from '@/ai/flows/extract-transactions-from-pdf';
 import { Trash2, Edit, ArrowLeft, Home } from 'lucide-react';
 import Link from 'next/link';
@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { saveStateToIndexedDB, getStorageEstimate, requestPersistentStorage } from '@/lib/indexeddb';
+import { defaultState } from '@/lib/mock-data';
 
 const AccountSettings = () => {
     const { state, dispatch } = useAppContext();
@@ -515,16 +516,106 @@ const DataManagement = () => {
             reader.onload = async (event) => {
                 try {
                     const text = event.target?.result as string;
-                    const importedState = JSON.parse(text);
-                    if (!importedState || typeof importedState !== 'object') {
+                    const parsedState: unknown = JSON.parse(text);
+                    if (!parsedState || typeof parsedState !== 'object' || Array.isArray(parsedState)) {
                         throw new Error("Invalid JSON structure.");
                     }
-                    
-                    // Save to IndexedDB before reporting success
-                    await saveStateToIndexedDB(importedState);
 
+                    const source = parsedState as Partial<AppState> & {
+                        carouselBanners?: CarouselBanner[];
+                    };
+                    if (!source.user || typeof source.user !== 'object') {
+                        throw new Error("JSON backup is missing user details.");
+                    }
+                    if (!Array.isArray(source.accounts) || source.accounts.length === 0) {
+                        throw new Error("JSON backup must contain at least one account.");
+                    }
+                    if (!Array.isArray(source.transactions)) {
+                        throw new Error("JSON backup must contain a transactions array.");
+                    }
+
+                    const accounts = source.accounts.map((account, index) => {
+                        if (!account || typeof account !== 'object') {
+                            throw new Error(`Account ${index + 1} is invalid.`);
+                        }
+                        return {
+                            ...account,
+                            id: typeof account.id === 'string' && account.id.trim()
+                                ? account.id
+                                : `imported-account-${index + 1}`,
+                            currencySymbol: account.currencySymbol || source.settings?.currencySymbol || defaultState.settings.currencySymbol,
+                        };
+                    });
+                    const accountIds = new Set(accounts.map(account => account.id));
+                    const fallbackAccountId = accounts[0].id;
+
+                    const transactions = source.transactions.map((transaction, index) => {
+                        if (!transaction || typeof transaction !== 'object') {
+                            throw new Error(`Transaction ${index + 1} is invalid.`);
+                        }
+                        const amount = Number(transaction.amount);
+                        if (!Number.isFinite(amount)) {
+                            throw new Error(`Transaction ${index + 1} has an invalid amount.`);
+                        }
+                        if (!transaction.date || !Number.isFinite(Date.parse(transaction.date))) {
+                            throw new Error(`Transaction ${index + 1} has an invalid date.`);
+                        }
+                        if (typeof transaction.description !== 'string') {
+                            throw new Error(`Transaction ${index + 1} is missing its description.`);
+                        }
+                        const type = transaction.type === 'credit' || transaction.type === 'debit'
+                            ? transaction.type
+                            : amount < 0 ? 'debit' : 'credit';
+                        return {
+                            ...transaction,
+                            id: typeof transaction.id === 'string' && transaction.id.trim()
+                                ? transaction.id
+                                : `imported-transaction-${index + 1}`,
+                            accountId: transaction.accountId && accountIds.has(transaction.accountId)
+                                ? transaction.accountId
+                                : fallbackAccountId,
+                            amount: type === 'debit' ? -Math.abs(amount) : Math.abs(amount),
+                            type,
+                        };
+                    });
+
+                    const importedState: AppState = {
+                        ...defaultState,
+                        ...source,
+                        isAuthenticated: false,
+                        isStateInitialized: true,
+                        loginPending: false,
+                        isLoggingOut: false,
+                        user: { ...defaultState.user, ...source.user },
+                        accounts,
+                        transactions,
+                        payees: Array.isArray(source.payees) ? source.payees : [],
+                        chatHistory: Array.isArray(source.chatHistory) ? source.chatHistory : [],
+                        currentTransfer: source.currentTransfer && typeof source.currentTransfer === 'object'
+                            ? source.currentTransfer
+                            : {},
+                        settings: {
+                            ...defaultState.settings,
+                            ...(source.settings || {}),
+                            iconAssets: {
+                                ...defaultState.settings.iconAssets,
+                                ...(source.settings?.iconAssets || {}),
+                            },
+                            carouselBanners: Array.isArray(source.settings?.carouselBanners)
+                                ? source.settings.carouselBanners
+                                : Array.isArray(source.carouselBanners)
+                                    ? source.carouselBanners
+                                    : defaultState.settings.carouselBanners,
+                        },
+                    };
+
+                    // Persist the validated, normalized full app state before reporting success.
+                    await saveStateToIndexedDB(importedState);
                     dispatch({ type: 'SET_STATE_FROM_JSON', payload: importedState });
-                    toast({ title: "Success", description: "State imported and saved to IndexedDB successfully." });
+                    toast({
+                        title: "Backup imported",
+                        description: `Restored ${accounts.length} account(s), ${transactions.length} transaction(s), and app settings. Sign in again to continue.`,
+                    });
                     
                     // Update storage estimate
                     const estimate = await getStorageEstimate();
