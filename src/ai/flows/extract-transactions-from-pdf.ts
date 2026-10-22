@@ -26,6 +26,21 @@ function parseAmount(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function parseReference(description: string): string | undefined {
+  const patterns = [
+    /\\bUPI\\/(?:CR|DR)\\/([A-Z0-9-]{8,})/i,
+    /\\bIMPS[A-Z-]*\\/([A-Z0-9-]{8,})/i,
+    /\\bNEFT[A-Z-]*\\/([A-Z0-9-]{8,})/i,
+    /\\bRTGS\\s+(?:TO|FROM)\\s+([0-9]{8,})/i,
+    /\\bATM(?:\\s+WDR)?\\s+([0-9]{8,})/i,
+  ];
+  for (const pattern of patterns) {
+    const match = description.match(pattern);
+    if (match?.[1]) return match[1];
+  }
+  return undefined;
+}
+
 export async function extractTransactionsFromPdf(pdfDataUri: string, accountId = 'unknown'): Promise<Transaction[]> {
   try {
     const base64 = pdfDataUri.includes(',') ? pdfDataUri.slice(pdfDataUri.indexOf(',') + 1) : pdfDataUri;
@@ -96,7 +111,7 @@ export async function extractTransactionsFromPdf(pdfDataUri: string, accountId =
         // legitimate separate bank transactions, not extraction duplicates.
         const transaction: Transaction = {
           id: `pdf-${pageNumber}-${transactions.length}-${date.slice(0, 10)}`,
-          accountId, date, description, amount, type: debit ? 'debit' : 'credit',
+          accountId, date, description, amount, type: debit ? 'debit' : 'credit', reference: parseReference(description),
         };
         transactions.push(transaction);
         currentTransaction = transaction;
