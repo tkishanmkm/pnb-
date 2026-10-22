@@ -28,11 +28,11 @@ function parseAmount(value: string): number | null {
 
 function parseReference(description: string): string | undefined {
   const patterns = [
-    /\\bUPI\\/(?:CR|DR)\\/([A-Z0-9-]{8,})/i,
-    /\\bIMPS[A-Z-]*\\/([A-Z0-9-]{8,})/i,
-    /\\bNEFT[A-Z-]*\\/([A-Z0-9-]{8,})/i,
-    /\\bRTGS\\s+(?:TO|FROM)\\s+([0-9]{8,})/i,
-    /\\bATM(?:\\s+WDR)?\\s+([0-9]{8,})/i,
+    /\bUPI\/(?:CR|DR)\/([A-Z0-9-]{8,})/i,
+    /\bIMPS[A-Z-]*\/([A-Z0-9-]{8,})/i,
+    /\bNEFT[A-Z-]*\/([A-Z0-9-]{8,})/i,
+    /\bRTGS\s+(?:TO|FROM)\s+([0-9]{8,})/i,
+    /\bATM(?:\s+WDR)?\s+([0-9]{8,})/i,
   ];
   for (const pattern of patterns) {
     const match = description.match(pattern);
