@@ -33,9 +33,9 @@ export default function EditTransactionPage() {
         }
     }, [transactionId, state.transactions, toast, router]);
 
-    const handleUpdate = (field: keyof Transaction, value: any) => {
+    const handleUpdate = (field: keyof Transaction, value: string) => {
         if (transaction) {
-            let newTransaction = { ...transaction, [field]: value };
+            const newTransaction = { ...transaction, [field]: value };
             // If amount or type is changed, ensure they are consistent
             if (field === 'amount') {
                 const newAmount = parseFloat(value);
