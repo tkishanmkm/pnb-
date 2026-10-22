@@ -54,7 +54,7 @@ export function StatementContent() {
     const to = searchParams.get('to');
     
     const transactionsWithBalance = useMemo(() => {
-        if (!state || !from || !to) return [];
+        if (!state || !from || !to || !state.accounts?.[0]) return [];
 
         const fromDate = startOfDay(parseISO(from));
         const toDate = new Date(parseISO(to).setHours(23, 59, 59, 999));
@@ -82,6 +82,10 @@ export function StatementContent() {
     
     const handleDownloadPdf = async () => {
         if (!from || !to || !state) return;
+        if (!state.accounts?.[0]) {
+            toast({ variant: 'destructive', title: 'No account found', description: 'Add or import an account before generating a statement.' });
+            return;
+        }
         setIsGeneratingPdf(true);
         toast({ title: "Generating PDF...", description: "Your statement is being prepared." });
 
@@ -115,6 +119,7 @@ export function StatementContent() {
     
     
     if (!state) return null; // Or a loading state
+    if (!state.accounts?.[0]) return <div className="p-4 text-center">No account is available. Import a valid app backup or add an account before generating a statement.</div>;
     if (!from || !to) return <div className="p-4 text-center">Invalid date range provided.</div>
 
     return (
