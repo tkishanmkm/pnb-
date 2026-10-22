@@ -34,13 +34,14 @@ export default function ConfirmTransferPage() {
   const { currentTransfer } = state;
   const payee = state.payees.find(p => p.id === payeeId);
   const account = state.accounts[0];
+  const transferAmount = currentTransfer.amount;
 
   const [step, setStep] = useState<Step>('summary');
   const [tpin, setTpin] = useState('');
   const [otp, setOtp] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  if (!payee || !currentTransfer.amount) {
+  if (!account || !payee || typeof transferAmount !== 'number' || !Number.isFinite(transferAmount) || transferAmount <= 0) {
     // This should ideally not happen if the flow is correct.
     // Redirecting to the start of the flow.
     if (typeof window !== 'undefined') {
@@ -55,7 +56,7 @@ export default function ConfirmTransferPage() {
     setTimeout(() => {
         const newTransaction = {
             type: 'debit' as 'debit',
-            amount: -currentTransfer.amount!,
+            amount: -transferAmount,
             description: `Fund Transfer to ${payee.name}`,
             date: new Date().toISOString(),
             payee: payee.name,
@@ -133,7 +134,7 @@ export default function ConfirmTransferPage() {
               <Separator />
               <div className="flex justify-between items-center">
                 <span className="font-semibold">Amount</span>
-                <span className="text-2xl font-bold font-headline text-primary flex items-center tracking-tighter"><RupeeIcon className="w-5 h-5 mr-0.5" /> {currentTransfer.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                <span className="text-2xl font-bold font-headline text-primary flex items-center tracking-tighter"><RupeeIcon className="w-5 h-5 mr-0.5" /> {transferAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
               </div>
               <Button onClick={() => setStep('tpin')} className="w-full">
                 Confirm
