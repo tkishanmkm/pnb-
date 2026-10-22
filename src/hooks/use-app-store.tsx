@@ -97,7 +97,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
         return newState;
     }
     case 'SET_STATE_FROM_JSON': {
-        const newState = {...action.payload, isAuthenticated: true, isStateInitialized: true, loginPending: false };
+        const newState = {...action.payload, isAuthenticated: false, isStateInitialized: true, loginPending: false, isLoggingOut: false };
         saveStateToIndexedDB(newState).catch(err => console.error("Failed to save imported JSON state to IndexedDB", err));
         return newState;
     }
