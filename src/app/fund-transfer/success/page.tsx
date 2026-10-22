@@ -14,7 +14,7 @@ import { formatCurrency } from '@/lib/utils';
 import { RupeeIcon } from '@/components/rupee-icon';
 import jsPDF from 'jspdf';
 
-const numberToWords = require('number-to-words');
+import * as numberToWords from 'number-to-words';
 
 const DetailRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div className="flex justify-between items-start py-1.5">
