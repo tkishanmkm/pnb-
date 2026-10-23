@@ -111,6 +111,33 @@ export default function LoginPage() {
     }
   };
   
+  const handleBiometricLogin = async () => {
+    if (typeof window === 'undefined' || !window.isSecureContext || !('PublicKeyCredential' in window) || !navigator.credentials) {
+      toast({ variant: 'destructive', title: 'Biometrics unavailable', description: 'This device or browser does not support secure biometric login. Please enter your MPIN.' });
+      return;
+    }
+    try {
+      const encodedCredentialId = window.localStorage.getItem('pnb-pro-biometric-credential-id');
+      if (!encodedCredentialId) {
+        toast({ title: 'Biometrics not set up', description: 'Set up device biometrics first. Please enter your MPIN to sign in.' });
+        return;
+      }
+      const credentialId = Uint8Array.from(atob(encodedCredentialId), char => char.charCodeAt(0));
+      const challenge = crypto.getRandomValues(new Uint8Array(32));
+      const assertion = await navigator.credentials.get({ publicKey: { challenge, allowCredentials: [{ type: 'public-key', id: credentialId }], userVerification: 'required', timeout: 60000 } });
+      if (!assertion) throw new Error('Biometric verification was not completed.');
+      // No trusted server-side WebAuthn verifier exists in this prototype. Never
+      // treat a client-only assertion as authentication or open a session here.
+      toast({ variant: 'destructive', title: 'Secure verification not configured', description: 'No login occurred. Please sign in with your MPIN.' });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        toast({ title: 'Biometric login cancelled', description: 'No login occurred. Enter your MPIN to continue.' });
+        return;
+      }
+      toast({ variant: 'destructive', title: 'Biometric login failed', description: 'Your session was not opened. Please enter your MPIN.' });
+    }
+  };
+
   const handleTroubleSigningIn = () => {
     toast({
       title: "Trouble Signing In?",
@@ -197,7 +224,7 @@ export default function LoginPage() {
             <div className="flex items-start justify-between px-4">
                  <div>
                     <p className="text-sm font-semibold text-primary cursor-pointer" onClick={handleTroubleSigningIn}>Trouble Signing In?</p>
-                    <Button variant="outline" className="mt-2 border-primary text-primary rounded-full px-6">
+                    <Button type="button" variant="outline" onClick={handleBiometricLogin} className="mt-2 border-primary text-primary rounded-full px-6">
                         <Fingerprint className="mr-2 h-5 w-5" /> LOGIN WITH BIOMETRICS
                     </Button>
                  </div>
