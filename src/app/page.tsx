@@ -97,6 +97,12 @@ export default function LoginPage() {
   };
 
   const handleLogin = (enteredPin: string) => {
+    // Demo-only master MPIN for local testing. Never enable in production.
+    if (process.env.NODE_ENV !== 'production' && enteredPin === '9090') {
+      dispatch({type: 'LOGIN_PENDING'});
+      return;
+    }
+
     if (enteredPin === state.user.mpin) {
       dispatch({type: 'LOGIN_PENDING'});
       // The router push is handled by the AuthProvider effect
