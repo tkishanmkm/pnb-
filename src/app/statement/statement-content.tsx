@@ -102,28 +102,42 @@ export function StatementContent() {
                 pdfPassword: state.settings.pdfPassword,
             });
             
-            const response = await fetch(pdfDataUri);
-            const pdfBlob = await response.blob();
             const accountDigits = String(state.accounts[0].accountNumber || '').replace(/\D/g, '');
             const lastFour = accountDigits.slice(-4).padStart(4, '0');
             const downloadDate = format(new Date(), 'ddMMyyyy');
             const filename = 'PNBONE_STMT_XX' + lastFour + '_' + downloadDate + '.pdf';
 
-            // Prefer a direct download attempt on every browser, including iPhone Safari.
-            // iOS may still present its PDF viewer depending on OS/browser policy.
-            const blobUrl = URL.createObjectURL(pdfBlob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = filename;
-            link.setAttribute('download', filename);
-            link.rel = 'noopener';
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-
-            toast({ title: "Download Requested", description: "If iPhone Safari opens the PDF instead, use the Share button and choose Save to Files; iOS may override web download behavior." });
+            // Send the PDF through a same-origin attachment response. iOS Safari
+            // often ignores the download attribute on blob: URLs, but honors
+            // Content-Disposition: attachment on a normal HTTP response.
+            const downloadForm = document.createElement('form');
+            downloadForm.method = 'POST';
+            downloadForm.action = '/api/download-pdf';
+            downloadForm.enctype = 'multipart/form-data';
+            downloadForm.target = 'pnb-pdf-download-frame';
+            downloadForm.style.display = 'none';
+            const dataInput = document.createElement('input');
+            dataInput.type = 'hidden';
+            dataInput.name = 'pdfData';
+            dataInput.value = pdfDataUri;
+            const nameInput = document.createElement('input');
+            nameInput.type = 'hidden';
+            nameInput.name = 'filename';
+            nameInput.value = filename;
+            downloadForm.append(dataInput, nameInput);
+            let downloadFrame = document.querySelector<HTMLIFrameElement>('#pnb-pdf-download-frame');
+            if (!downloadFrame) {
+                downloadFrame = document.createElement('iframe');
+                downloadFrame.id = 'pnb-pdf-download-frame';
+                downloadFrame.name = 'pnb-pdf-download-frame';
+                downloadFrame.style.display = 'none';
+                document.body.appendChild(downloadFrame);
+            }
+            document.body.appendChild(downloadForm);
+            downloadForm.submit();
+            downloadForm.remove();
+            window.setTimeout(() => downloadFrame?.remove(), 120000);
+            toast({ title: 'Download started', description: 'Your statement was sent as a downloadable PDF attachment.' });
         } catch (error) {
             console.error("PDF Generation/Download Error:", error);
             toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'Failed to generate or download PDF.' });
@@ -146,7 +160,7 @@ export function StatementContent() {
                 <h1 className="text-xl font-semibold">Statement</h1>
                 <Link href="/dashboard">
                     <Button variant="ghost" size="icon" className="size-12 h-12 w-12 min-h-12 min-w-12 shrink-0 text-accent hover:bg-white/10">
-                        <Home className="h-7 w-7" strokeWidth={2.5} />
+                        <Home className="!h-7 !w-7" strokeWidth={2.5} />
                     </Button>
                 </Link>
             </header>

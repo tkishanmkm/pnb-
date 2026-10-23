@@ -851,7 +851,7 @@ const PdfExtraction = () => {
                         extractTransactionsFromPdf(dataUri),
                     ]);
                     const accountNumber = details.accountNumber;
-                    const destinationAccountId = accountNumber ? 'statement-' + accountNumber.replace(/\\D/g, '') : 'statement-import';
+                    const destinationAccountId = accountNumber ? 'statement-' + accountNumber.replace(/\D/g, '') : 'statement-import';
                     setStatementDetails(details);
                     // Keep every parsed row, including repeated payments. Saving replaces the old dataset.
                     const statementTransactions = results.map((transaction, index) => ({

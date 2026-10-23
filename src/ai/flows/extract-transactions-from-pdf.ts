@@ -15,7 +15,7 @@ async function loadPdfJs() {
 async function openPdfDocument(pdfjsLib: typeof import('pdfjs-dist'), bytes: Uint8Array) {
   // Avoid eval-based font compilation and use browser fonts where available;
   // both settings are safer across WebKit and do not weaken PDF parsing.
-  return pdfjsLib.getDocument({ data: bytes, useSystemFonts: true }).promise;
+  return pdfjsLib.getDocument({ data: bytes, useSystemFonts: true, isEvalSupported: false, useWorkerFetch: false }).promise;
 }
 // Scanned/image-only PDFs need OCR; unsupported layouts are reported.
 
@@ -225,7 +225,7 @@ export async function extractTransactionsFromPdf(pdfDataUri: string, accountId =
             const continuation = cells
               .filter(cell => cell.x >= 330)
               .map(cell => cell.text)
-              .filter(text => text && !/^page\\s+\\d+$/i.test(text) && !/^date:/i.test(text))
+              .filter(text => text && !/^page\s+\d+$/i.test(text) && !/^date:/i.test(text))
               .join(' ')
               .trim();
             if (continuation) {
