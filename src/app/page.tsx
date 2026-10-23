@@ -145,10 +145,14 @@ export default function LoginPage() {
   };
 
   const handleTroubleSigningIn = () => {
+    // Demo-only recovery: generate and save a new four-digit MPIN for this local demo profile.
+    const generatedMpin = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    dispatch({ type: 'UPDATE_USER', payload: { mpin: generatedMpin } });
+    setPin(["", "", "", ""]);
     toast({
-      title: "Trouble Signing In?",
-      description: `For demo purposes, the MPIN is ${state.user.mpin}`,
-      duration: 5000,
+      title: "Demo MPIN Generated",
+      description: `Your new demo MPIN is ${generatedMpin}. It has been saved; use it to sign in.`,
+      duration: 10000,
     });
   };
 

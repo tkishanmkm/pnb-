@@ -504,8 +504,9 @@ const DataManagement = () => {
         try {
             const stateToExport = JSON.parse(JSON.stringify({
                 ...state,
-                // Never include reusable authentication secrets in a portable backup.
-                user: { ...state.user, mpin: '', tpin: '' },
+                // This app's demo backup intentionally includes PINs so the same demo
+                // credentials continue to work after restoring the backup.
+                user: { ...state.user, mpin: state.user.mpin, tpin: state.user.tpin },
                 isAuthenticated: false,
                 loginPending: false,
                 isLoggingOut: false,
@@ -520,7 +521,7 @@ const DataManagement = () => {
             a.click();
             a.remove();
             window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-            toast({ title: "Success", description: "State exported. MPIN and TPIN were excluded for security; set them again after importing the backup." });
+            toast({ title: "Success", description: "Backup exported with MPIN and TPIN. Keep this JSON file private because it contains your demo PINs." });
         } catch (error) {
             console.error("Export error:", error);
             toast({ variant: 'destructive', title: "Error", description: "Failed to export state." });
