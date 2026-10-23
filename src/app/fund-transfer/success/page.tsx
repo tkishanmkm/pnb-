@@ -198,7 +198,7 @@ function TransferSuccess() {
                 const logoHeight = 4;
                 const logoWidth = Math.min(logoHeight * (logoInfo.width / logoInfo.height), 10);
                 senderNumberX = right - senderNumberWidth - 2;
-                doc.addImage(settings.appLogo, logoInfo.fileType, senderNumberX - logoWidth - 2, y - 3.2, logoWidth, logoHeight, undefined, 'FAST');
+                doc.addImage(settings.appLogo, logoInfo.fileType, senderNumberX - logoWidth - 1, y - 3.2, logoWidth, logoHeight, undefined, 'FAST');
             } catch (error) { console.warn('Could not add app logo to receipt.', error); }
         }
         doc.setTextColor(35, 40, 46); doc.text(senderNumber, right, y, { align: 'right' });
@@ -291,29 +291,30 @@ function TransferSuccess() {
                         
                         <div className="mt-3 pt-3 border-t border-dashed space-y-0.5">
                            <DetailRow label="FROM">
-                                <div className="flex flex-col items-end">
-                                    <p className="font-semibold text-gray-800 uppercase">{user.name}</p>
-                                    <div className="flex items-start justify-end gap-2 mt-1">
-                                        <span className="text-gray-500">Account number</span>
-                                        <div className="flex items-center gap-1.5">
+                                <div className="w-full min-w-0">
+                                    <p className="text-right font-semibold text-gray-800 uppercase">{user.name}</p>
+                                    <div className="mt-1 grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2">
+                                        <span className="text-left text-gray-500">Account number</span>
+                                        <span className="flex min-w-0 items-center justify-end gap-1 whitespace-nowrap text-gray-600">
                                             {settings.appLogo && <Image src={settings.appLogo} width={16} height={16} alt="PNB ONE app logo" className="shrink-0" />}
-                                            <span className="text-gray-600 break-all">{account.accountNumber}</span>
-                                        </div>
+                                            <span>{account.accountNumber}</span>
+                                        </span>
                                     </div>
                                 </div>
                             </DetailRow>
                             <DetailRow label="TO">
-                                <div className="flex flex-col items-end">
-                                    <p className="font-semibold text-gray-800">{payee.name}</p>
-                                     <div className="flex flex-col items-end gap-1 mt-1">
-                                        <div className="flex items-start justify-end gap-2">
-                                            <span className="text-gray-500">Payee account number</span>
-                                            <div className="flex items-center gap-1.5">
-                                                <Landmark className="h-4 w-4 shrink-0 text-gray-500" aria-label="Bank" />
-                                                <span className="text-gray-600 break-all">{payee.accountNumber}</span>
-                                            </div>
-                                        </div>
-                                        <span className="text-gray-600">IFSC: {String(payee.ifsc || '-').toUpperCase()}</span>
+                                <div className="w-full min-w-0">
+                                    <p className="text-right font-semibold text-gray-800">{payee.name}</p>
+                                    <div className="mt-1 grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2">
+                                        <span className="text-left text-gray-500">Payee account number</span>
+                                        <span className="flex min-w-0 items-center justify-end gap-1 whitespace-nowrap text-gray-600">
+                                            <Landmark className="h-4 w-4 shrink-0 text-gray-500" aria-label="Bank" />
+                                            <span>{payee.accountNumber}</span>
+                                        </span>
+                                    </div>
+                                    <div className="mt-1 grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2">
+                                        <span className="text-left text-gray-500">IFSC</span>
+                                        <span className="text-right text-gray-600">{String(payee.ifsc || '-').toUpperCase()}</span>
                                     </div>
                                 </div>
                             </DetailRow>
