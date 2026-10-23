@@ -186,22 +186,33 @@ function TransferSuccess() {
 
         addSectionTitle('FROM');
         addRow('Account holder', user.name, true);
-        addRow('Account number', String(account.accountNumber || '-'));
+        // Keep the original receipt row layout; place the app logo before the full account number.
+        if (settings.appLogo) {
+            try {
+                const logoInfo = doc.getImageProperties(settings.appLogo);
+                const logoHeight = 4;
+                const logoWidth = Math.min(logoHeight * (logoInfo.width / logoInfo.height), 10);
+                doc.addImage(settings.appLogo, logoInfo.fileType, margin, y - 3.2, logoWidth, logoHeight, undefined, 'FAST');
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 106, 114);
+                doc.text(String(account.accountNumber || '-'), right, y, { align: 'right' });
+                y += 7.5;
+            } catch (error) { console.warn('Could not add app logo to receipt.', error); addRow('Account number', String(account.accountNumber || '-')); }
+        } else { addRow('Account number', String(account.accountNumber || '-')); }
 
         y += 2;
         addSectionTitle('TO');
         addRow('Payee name', payee.name, true);
-        // Standard neutral bank mark drawn as vector geometry for crisp Windows/iOS output.
-        const bankIconX = right - 6;
+        // Standard bank icon sits before the payee account number, clear of its digits.
+        const bankIconX = margin;
         doc.setDrawColor(120, 130, 142);
         doc.setFillColor(238, 241, 245);
-        doc.rect(bankIconX, y - 1.5, 6, 5, 'FD');
+        doc.rect(bankIconX, y - 3.5, 6, 5, 'FD');
         doc.setDrawColor(100, 110, 122);
-        doc.line(bankIconX + 0.8, y - 0.3, bankIconX + 5.2, y - 0.3);
-        doc.line(bankIconX + 1.2, y + 0.5, bankIconX + 1.2, y + 2.5);
-        doc.line(bankIconX + 3, y + 0.5, bankIconX + 3, y + 2.5);
-        doc.line(bankIconX + 4.8, y + 0.5, bankIconX + 4.8, y + 2.5);
-        doc.line(bankIconX + 0.5, y + 3, bankIconX + 5.5, y + 3);
+        doc.line(bankIconX + 0.8, y - 2.3, bankIconX + 5.2, y - 2.3);
+        doc.line(bankIconX + 1.2, y - 1.5, bankIconX + 1.2, y + 0.5);
+        doc.line(bankIconX + 3, y - 1.5, bankIconX + 3, y + 0.5);
+        doc.line(bankIconX + 4.8, y - 1.5, bankIconX + 4.8, y + 0.5);
+        doc.line(bankIconX + 0.5, y + 1, bankIconX + 5.5, y + 1);
         addRow('Payee account number', String(payee.accountNumber || '-'));
         addRow('IFSC code', String(payee.ifsc || '-').toUpperCase());
 
@@ -211,24 +222,27 @@ function TransferSuccess() {
         y += 7;
         addSectionTitle('TRANSFER DETAILS');
 
-        // Draw a small rupee symbol as a vector mark so it is not lost by jsPDF's
-        // built-in Helvetica font on Windows or iOS PDF viewers.
+        // Preserve the original receipt typography while placing AMOUNT left and value right.
         const amountY = y;
-        doc.setDrawColor(25, 65, 112);
-        doc.setLineWidth(0.55);
-        doc.line(margin + 0.5, amountY - 3.2, margin + 3.7, amountY - 3.2);
-        doc.line(margin + 0.5, amountY - 1.7, margin + 3.7, amountY - 1.7);
-        doc.line(margin + 1.1, amountY - 4.3, margin + 1.1, amountY - 0.5);
-        doc.line(margin + 1.1, amountY - 4.3, margin + 2.4, amountY - 4.3);
-        doc.line(margin + 1.1, amountY - 1.7, margin + 3.1, amountY + 1.5);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(15);
-        doc.setTextColor(25, 65, 112);
-        doc.text(formattedAmountWithCommas, margin + 6, y);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         doc.setTextColor(100, 106, 114);
-        doc.text('Amount', right, y, { align: 'right' });
+        doc.text('AMOUNT', margin, amountY);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(15);
+        doc.setTextColor(25, 65, 112);
+        const amountText = formattedAmountWithCommas;
+        const amountWidth = doc.getTextWidth(amountText);
+        const rupeeX = right - amountWidth - 5;
+        // Simple vector ? mark (two bars, stem, and diagonal leg), right beside the value.
+        doc.setDrawColor(25, 65, 112);
+        doc.setLineWidth(0.55);
+        doc.line(rupeeX, amountY - 3.2, rupeeX + 3.2, amountY - 3.2);
+        doc.line(rupeeX, amountY - 1.7, rupeeX + 3.2, amountY - 1.7);
+        doc.line(rupeeX + 0.6, amountY - 4.3, rupeeX + 0.6, amountY - 0.5);
+        doc.line(rupeeX + 0.6, amountY - 4.3, rupeeX + 1.9, amountY - 4.3);
+        doc.line(rupeeX + 0.6, amountY - 1.7, rupeeX + 2.6, amountY + 1.5);
+        doc.text(amountText, right, amountY, { align: 'right' });
         y += 8;
 
         doc.setFont('helvetica', 'normal');
@@ -273,7 +287,7 @@ function TransferSuccess() {
                         </p>
                         
                         <div className="mt-3 pt-3 border-t border-dashed space-y-0.5">
-                           <DetailRow label="From">
+                           <DetailRow label="FROM">
                                 <div className="flex flex-col items-end">
                                     <p className="font-semibold text-gray-800 uppercase">{user.name}</p>
                                     <div className="flex items-center justify-end gap-2 mt-1">
@@ -282,7 +296,7 @@ function TransferSuccess() {
                                     </div>
                                 </div>
                             </DetailRow>
-                            <DetailRow label="To">
+                            <DetailRow label="TO">
                                 <div className="flex flex-col items-end">
                                     <p className="font-semibold text-gray-800">{payee.name}</p>
                                      <div className="flex items-center justify-end gap-2 mt-1">
@@ -291,7 +305,7 @@ function TransferSuccess() {
                                     </div>
                                 </div>
                             </DetailRow>
-                            <DetailRow label="Amount">
+                            <DetailRow label="AMOUNT">
                                  <div className="flex flex-col items-end">
                                     <p className="font-bold text-base text-gray-900 flex items-center justify-end tracking-tighter"><RupeeIcon className="w-3.5 h-3.5 mr-0.5"/>{formatCurrency(amount)}</p>
                                     <p className="text-[10px] text-gray-500 max-w-48 break-words text-right">{amountInWords}</p>
