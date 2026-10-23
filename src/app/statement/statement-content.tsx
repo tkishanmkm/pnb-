@@ -145,8 +145,8 @@ export function StatementContent() {
                 </Button>
                 <h1 className="text-xl font-semibold">Statement</h1>
                 <Link href="/dashboard">
-                    <Button variant="ghost" size="icon" className="size-10 h-10 w-10 min-h-10 min-w-10 shrink-0 text-accent hover:bg-white/10">
-                        <Home className="h-6 w-6" />
+                    <Button variant="ghost" size="icon" className="size-12 h-12 w-12 min-h-12 min-w-12 shrink-0 text-accent hover:bg-white/10">
+                        <Home className="h-7 w-7" strokeWidth={2.5} />
                     </Button>
                 </Link>
             </header>

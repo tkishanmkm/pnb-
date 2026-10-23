@@ -175,7 +175,7 @@ const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => 
             canvas.height = Math.ceil(viewport.height);
             const context = canvas.getContext('2d');
             if (!context) throw new Error('Canvas rendering is unavailable.');
-            await sourcePage.render({ canvas, canvasContext: context, viewport }).promise;
+            await sourcePage.render({ canvasContext: context, viewport }).promise;
             doc.addPage('a4', 'p');
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
