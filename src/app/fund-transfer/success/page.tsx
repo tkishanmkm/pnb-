@@ -186,7 +186,7 @@ function TransferSuccess() {
 
         addSectionTitle('FROM');
         addRow('Account holder', user.name, true);
-        addRow('Account number', `•••• ${String(account.accountNumber).slice(-4)}`);
+        addRow('Account number', String(account.accountNumber || '-'));
 
         y += 2;
         addSectionTitle('TO');
@@ -202,7 +202,8 @@ function TransferSuccess() {
         doc.line(bankIconX + 3, y + 0.5, bankIconX + 3, y + 2.5);
         doc.line(bankIconX + 4.8, y + 0.5, bankIconX + 4.8, y + 2.5);
         doc.line(bankIconX + 0.5, y + 3, bankIconX + 5.5, y + 3);
-        addRow('Bank details', `${payee.accountNumber} · ${payee.ifsc}`);
+        addRow('Payee account number', String(payee.accountNumber || '-'));
+        addRow('IFSC code', String(payee.ifsc || '-').toUpperCase());
 
         y += 2;
         doc.setDrawColor(215, 220, 226);
@@ -277,7 +278,7 @@ function TransferSuccess() {
                                     <p className="font-semibold text-gray-800 uppercase">{user.name}</p>
                                     <div className="flex items-center justify-end gap-2 mt-1">
                                         {settings.appLogo && <Image src={settings.appLogo} width={16} height={16} alt="bank logo" data-ai-hint="pnb one logo" />}
-                                        <span className="text-gray-600">...{account.accountNumber.slice(-4)}</span>
+                                        <span className="text-gray-600 break-all">{account.accountNumber}</span>
                                     </div>
                                 </div>
                             </DetailRow>
@@ -285,8 +286,8 @@ function TransferSuccess() {
                                 <div className="flex flex-col items-end">
                                     <p className="font-semibold text-gray-800">{payee.name}</p>
                                      <div className="flex items-center justify-end gap-2 mt-1">
-                                        <Landmark className="h-4 w-4 text-gray-400" />
-                                        <span className="text-gray-600">{payee.accountNumber} ({payee.ifsc})</span>
+                                        <Landmark className="h-4 w-4 shrink-0 text-gray-500" aria-label="Bank" />
+                                        <span className="text-gray-600 break-all">{payee.accountNumber}<span className="block">IFSC: {String(payee.ifsc || '-').toUpperCase()}</span></span>
                                     </div>
                                 </div>
                             </DetailRow>
