@@ -71,7 +71,7 @@ function TransferSuccess() {
                 id: generatedRefId,
                 accountId: state.accounts[0].id,
                 date: new Date().toISOString(),
-                description: `IMPS-IN/ ${generatedRrn.split('/')[1]} /${payee?.accountNumber || ''}/${payeeFirstName}`,
+                description: `IMPS-IN/${generatedRrn.split('/')[1]}/${payee?.accountNumber || ''}/${payeeFirstName}`,
                 amount: -amount,
                 type: 'debit',
                 category: 'Transfer',
@@ -83,7 +83,7 @@ function TransferSuccess() {
 
             const chargeTransaction: Omit<Transaction, 'id' | 'accountId'> = {
                 date: new Date().toISOString(),
-                description: `IMPS-CHG/ ${generatedRrn.split('/')[1]} /${payee?.accountNumber || ''}/${payeeFirstName}`,
+                description: `IMPS-CHG/${generatedRrn.split('/')[1]}/${payee?.accountNumber || ''}/${payeeFirstName}`,
                 amount: -impsCharge,
                 type: 'debit',
                 category: 'Bank Charges',

@@ -4,8 +4,18 @@ import type { Transaction } from '@/lib/types';
 // can crash iOS browsers before Settings renders.
 async function loadPdfJs() {
   const pdfjsLib = await import('pdfjs-dist');
-  if (typeof window !== 'undefined') pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+  if (typeof window !== 'undefined') {
+    // Resolve against the active origin so iOS Safari/Chrome doesn't interpret
+    // the worker URL relative to a nested route or query string.
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('/pdf.worker.min.mjs', window.location.origin).href;
+  }
   return pdfjsLib;
+}
+
+async function openPdfDocument(pdfjsLib: typeof import('pdfjs-dist'), bytes: Uint8Array) {
+  // Avoid eval-based font compilation and use browser fonts where available;
+  // both settings are safer across WebKit and do not weaken PDF parsing.
+  return pdfjsLib.getDocument({ data: bytes, useSystemFonts: true }).promise;
 }
 // Scanned/image-only PDFs need OCR; unsupported layouts are reported.
 
@@ -47,7 +57,7 @@ export async function extractStatementAccountNumberFromPdf(pdfDataUri: string): 
   const base64 = pdfDataUri.includes(',') ? pdfDataUri.slice(pdfDataUri.indexOf(',') + 1) : pdfDataUri;
   const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
   const pdfjsLib = await loadPdfJs();
-  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+  const pdf = await openPdfDocument(pdfjsLib, bytes);
   const page = await pdf.getPage(1);
   const content = await page.getTextContent();
   const text = content.items
@@ -80,7 +90,7 @@ export async function extractStatementDetailsFromPdf(pdfDataUri: string): Promis
   const base64 = pdfDataUri.includes(',') ? pdfDataUri.slice(pdfDataUri.indexOf(',') + 1) : pdfDataUri;
   const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
   const pdfjsLib = await loadPdfJs();
-  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+  const pdf = await openPdfDocument(pdfjsLib, bytes);
   const lines: string[] = [];
   const allRows: Array<{ page: number; y: number; cells: Array<{ text: string; x: number; y: number }> }> = [];
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
@@ -177,7 +187,7 @@ export async function extractTransactionsFromPdf(pdfDataUri: string, accountId =
     const base64 = pdfDataUri.includes(',') ? pdfDataUri.slice(pdfDataUri.indexOf(',') + 1) : pdfDataUri;
     const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
     const pdfjsLib = await loadPdfJs();
-  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+  const pdf = await openPdfDocument(pdfjsLib, bytes);
     const transactions: Transaction[] = [];
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {

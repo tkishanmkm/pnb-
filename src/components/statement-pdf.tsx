@@ -164,10 +164,10 @@ const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => 
     if (lastPagePdfDataUri) {
         try {
             const pdfjsLib = await import('pdfjs-dist');
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('/pdf.worker.min.mjs', window.location.origin).href;
             const base64 = lastPagePdfDataUri.includes(',') ? lastPagePdfDataUri.slice(lastPagePdfDataUri.indexOf(',') + 1) : lastPagePdfDataUri;
             const sourceBytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
-            const sourcePdf = await pdfjsLib.getDocument({ data: sourceBytes }).promise;
+            const sourcePdf = await pdfjsLib.getDocument({ data: sourceBytes, useSystemFonts: true }).promise;
             const sourcePage = await sourcePdf.getPage(sourcePdf.numPages);
             const viewport = sourcePage.getViewport({ scale: 1.5 });
             const canvas = document.createElement('canvas');
@@ -187,7 +187,8 @@ const generatePdfDataUri = async (props: StatementPDFProps): Promise<string> => 
             canvas.height = 0;
         } catch (error) {
             console.error('Could not append the configured final PDF page:', error);
-            throw new Error('The configured final page could not be added. Remove or re-upload that page in Settings and try again.');
+            const reason = error instanceof Error ? error.message : String(error);
+            throw new Error('Could not add the configured final PDF page: ' + reason + '. In Settings, re-upload an unencrypted, valid PDF file and try again.');
         }
     }
     return doc.output('datauristring');

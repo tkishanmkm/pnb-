@@ -104,21 +104,36 @@ export function StatementContent() {
             
             const response = await fetch(pdfDataUri);
             const pdfBlob = await response.blob();
-            const blobUrl = URL.createObjectURL(pdfBlob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
             const accountDigits = String(state.accounts[0].accountNumber || '').replace(/\D/g, '');
             const lastFour = accountDigits.slice(-4).padStart(4, '0');
             const downloadDate = format(new Date(), 'ddMMyyyy');
-            link.download = 'PNBONE_STMT_XX' + lastFour + '_' + downloadDate + '.pdf';
+            const filename = 'PNBONE_STMT_XX' + lastFour + '_' + downloadDate + '.pdf';
+
+            // iOS Safari/Chrome may ignore <a download> for blob URLs. Prefer the
+            // native share sheet so the user can choose Save to Files with the filename.
+            const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
+            if (typeof navigator !== 'undefined' &&
+                typeof navigator.share === 'function' &&
+                typeof navigator.canShare === 'function' &&
+                navigator.canShare({ files: [pdfFile] })) {
+                await navigator.share({ files: [pdfFile], title: filename });
+                toast({ title: "Statement ready", description: "Choose Save to Files in the iPhone share sheet to save the PDF." });
+                return;
+            }
+
+            const blobUrl = URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename;
             link.rel = 'noopener';
+            link.style.display = 'none';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            // Keep the object URL alive long enough for iOS browsers to start the save.
+            // iOS may need time to begin the native download/open flow.
             window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 
-            toast({ title: "Download Started", description: "Use Share or Save to Files if your browser opens the PDF instead of saving it directly." });
+            toast({ title: "Download Started", description: "If your browser opens the PDF, use Share and choose Save to Files." });
         } catch (error) {
             console.error("PDF Generation/Download Error:", error);
             toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'Failed to generate or download PDF.' });
@@ -140,7 +155,7 @@ export function StatementContent() {
                 </Button>
                 <h1 className="text-xl font-semibold">Statement</h1>
                 <Link href="/dashboard">
-                    <Button variant="ghost" size="icon" className="h-10 w-10 min-h-10 min-w-10 text-accent hover:bg-white/10">
+                    <Button variant="ghost" size="icon" className="size-10 h-10 w-10 min-h-10 min-w-10 shrink-0 text-accent hover:bg-white/10">
                         <Home className="h-6 w-6" />
                     </Button>
                 </Link>
