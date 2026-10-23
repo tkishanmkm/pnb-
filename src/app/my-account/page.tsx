@@ -58,7 +58,7 @@ export default function MyAccountPage() {
                     </CardHeader>
                     <CardContent className="divide-y">
                         <DetailRow label="Full Name" value={user.name} />
-                        <DetailRow label="Customer ID" value={user.id} />
+                        <DetailRow label="Customer ID" value={account.customerId} />
                         <DetailRow label="Date of Birth" value={user.dob} />
                         <DetailRow label="Mobile Number" value={maskMobile(user.mobileNumber)} />
                         <DetailRow label="Email ID" value={maskEmail(user.email)} />
