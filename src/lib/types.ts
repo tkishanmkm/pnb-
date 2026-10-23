@@ -6,6 +6,8 @@ export type Transaction = {
   description: string;
   amount: number;
   type: 'credit' | 'debit';
+  /** Parsed running balance immediately after this transaction, when supplied by the source statement. */
+  balanceAfter?: number;
   category?: string;
   reference?: string;
   payee?: string;

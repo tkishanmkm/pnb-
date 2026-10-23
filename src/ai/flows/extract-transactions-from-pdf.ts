@@ -265,11 +265,20 @@ export async function extractTransactionsFromPdf(pdfDataUri: PdfInput, accountId
         const direction = typeIndex >= 0 ? trailing[typeIndex].toLowerCase() : '';
         const debit = direction === 'dr' || direction === 'debit' || (!direction && amountCell.amount < 0);
         const amount = Math.abs(amountCell.amount) * (debit ? -1 : 1);
+        // In standard PNB statement rows, the numeric cell after DR/CR is the
+        // running balance after this transaction. Preserve it as source truth.
+        const balanceCandidate = typeIndex >= 0
+          ? amountCandidates.find(candidate => candidate.index > typeIndex)
+          : undefined;
         // Keep repeated same-day payments: identical descriptions and amounts can be
         // legitimate separate bank transactions, not extraction duplicates.
         const transaction: Transaction = {
           id: `pdf-${pageNumber}-${transactions.length}-${date.slice(0, 10)}`,
-          accountId, date, description, amount, type: debit ? 'debit' : 'credit', reference: parseReference(description),
+          accountId, date, description, amount, type: debit ? 'debit' : 'credit',
+          ...(balanceCandidate?.amount !== null && balanceCandidate?.amount !== undefined
+            ? { balanceAfter: Math.abs(balanceCandidate.amount) }
+            : {}),
+          reference: parseReference(description),
         };
         transactions.push(transaction);
         currentTransaction = transaction;
