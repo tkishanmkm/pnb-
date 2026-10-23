@@ -60,26 +60,39 @@ export function StatementContent() {
 
         // A statement must contain only transactions belonging to the account being exported.
         const account = state.accounts[0];
-        const allTransactionsSortedAsc = state.transactions
-            .filter(tx => tx.accountId === account.id)
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        
-        const openingBalance = allTransactionsSortedAsc
-            .filter(tx => new Date(tx.date) < fromDate)
-            .reduce((acc, tx) => acc + tx.amount, state.accounts[0].balance - allTransactionsSortedAsc.reduce((acc, tx) => acc + tx.amount, 0));
+        // The imported PNB statement lists same-day rows newest-first. Reverse
+        // source order for equal timestamps while calculating balances chronologically.
+        const accountTransactionsAsc = state.transactions
+            .map((tx, index) => ({ tx, index }))
+            .filter(({ tx }) => tx.accountId === account.id)
+            .sort((a, b) => new Date(a.tx.date).getTime() - new Date(b.tx.date).getTime() || b.index - a.index);
+        const allTransactionsSortedAsc = accountTransactionsAsc.map(({ tx }) => tx);
 
-        const periodTransactions = allTransactionsSortedAsc.filter(tx => {
+        // Account.balance is the latest closing balance. Rewind every transaction
+        // on/after the requested start date to get the opening balance. Do not add
+        // earlier transactions back in: that double-counts prior activity.
+        const signedAmount = (tx: Transaction) => tx.type === 'debit'
+            ? -Math.abs(tx.amount)
+            : Math.abs(tx.amount);
+        const openingBalancePaise = Math.round(account.balance * 100) - allTransactionsSortedAsc
+            .filter(tx => new Date(tx.date) >= fromDate)
+            .reduce((total, tx) => total + Math.round(signedAmount(tx) * 100), 0);
+
+        const periodTransactions = accountTransactionsAsc.filter(({ tx }) => {
             const txDate = new Date(tx.date);
             return txDate >= fromDate && txDate <= toDate;
         });
 
-        let runningBalance = openingBalance;
-        const transactionsWithRunningBalance = periodTransactions.map(tx => {
-            runningBalance += tx.amount;
-            return { ...tx, balance: runningBalance };
+        let runningBalancePaise = openingBalancePaise;
+        const transactionsWithRunningBalance = periodTransactions.map(({ tx, index }) => {
+            runningBalancePaise += Math.round(signedAmount(tx) * 100);
+            return { ...tx, balance: runningBalancePaise / 100, _sourceIndex: index };
         });
-        
-        return transactionsWithRunningBalance.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        // Display newest statement rows first; ties retain the source PDF order.
+        return transactionsWithRunningBalance
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || a._sourceIndex - b._sourceIndex)
+            .map(({ _sourceIndex, ...tx }) => tx);
 
     }, [state, from, to]);
     
