@@ -198,7 +198,7 @@ function TransferSuccess() {
                 const logoHeight = 4;
                 const logoWidth = Math.min(logoHeight * (logoInfo.width / logoInfo.height), 10);
                 senderNumberX = right - senderNumberWidth - 2;
-                doc.addImage(settings.appLogo, logoInfo.fileType, senderNumberX - logoWidth - 1, y - 3.2, logoWidth, logoHeight, undefined, 'FAST');
+                doc.addImage(settings.appLogo, logoInfo.fileType, senderNumberX - logoWidth - 0.4, y - 3.2, logoWidth, logoHeight, undefined, 'FAST');
             } catch (error) { console.warn('Could not add app logo to receipt.', error); }
         }
         doc.setTextColor(35, 40, 46); doc.text(senderNumber, right, y, { align: 'right' });
@@ -227,22 +227,25 @@ function TransferSuccess() {
         doc.setFontSize(10);
         doc.setTextColor(100, 106, 114);
         doc.text('AMOUNT', margin, amountY);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(15);
-        doc.setTextColor(25, 65, 112);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(35, 40, 46);
         const amountText = formattedAmountWithCommas;
         const amountWidth = doc.getTextWidth(amountText);
-        const rupeeX = right - amountWidth - 5;
-        // Compact vector rupee glyph, aligned with the amount baseline.
-        doc.setDrawColor(25, 65, 112);
-        doc.setLineWidth(0.45);
-        doc.line(rupeeX, amountY - 3.4, rupeeX + 3.6, amountY - 3.4);
-        doc.line(rupeeX, amountY - 2.1, rupeeX + 3.6, amountY - 2.1);
-        doc.line(rupeeX + 0.35, amountY - 4.2, rupeeX + 0.35, amountY - 0.2);
-        doc.line(rupeeX + 0.35, amountY - 4.2, rupeeX + 1.65, amountY - 4.2);
-        doc.line(rupeeX + 0.35, amountY - 2.1, rupeeX + 2.25, amountY - 2.1);
-        doc.lines([[1.1,0],[0.45,0.25],[0.2,0.5],[-0.1,0.55],[-0.45,0.4],[-0.65,0.3]], rupeeX + 1.65, amountY - 4.2, [1,1], 'S', false);
-        doc.line(rupeeX + 0.45, amountY - 1.5, rupeeX + 2.8, amountY + 1.4);
+        const rupeeSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512" width="320" height="512"><path fill="#23282e" d="M.0022 64C.0022 46.33 14.33 32 32 32H288C305.7 32 320 46.33 320 64C320 81.67 305.7 96 288 96H231.8C241.4 110.4 248.5 126.6 252.4 144H288C305.7 144 320 158.3 320 176C320 193.7 305.7 208 288 208H252.4C239.2 266.3 190.5 311.2 130.3 318.9L274.6 421.1C288.1 432.2 292.3 452.2 282 466.6C271.8 480.1 251.8 484.3 237.4 474L13.4 314C2.083 305.1-2.716 291.5 1.529 278.2C5.774 264.1 18.09 256 32 256H112C144.8 256 173 236.3 185.3 208H32C14.33 208 .0022 193.7 .0022 176C.0022 158.3 14.33 144 32 144H185.3C173 115.7 144.8 96 112 96H32C14.33 96 .0022 81.67.0022 64V64z"/></svg>';
+        const svgUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(rupeeSvg);
+        const rupeeImage = new window.Image();
+        rupeeImage.src = svgUrl;
+        await new Promise<void>((resolve, reject) => { rupeeImage.onload = () => resolve(); rupeeImage.onerror = () => reject(new Error('Could not load embedded rupee SVG')); });
+        const rupeeCanvas = document.createElement('canvas');
+        rupeeCanvas.width = 40; rupeeCanvas.height = 64;
+        const rupeeContext = rupeeCanvas.getContext('2d');
+        if (!rupeeContext) throw new Error('Could not render rupee SVG');
+        rupeeContext.drawImage(rupeeImage, 0, 0, rupeeCanvas.width, rupeeCanvas.height);
+        const rupeePng = rupeeCanvas.toDataURL('image/png');
+        const rupeeWidth = 2.4; const rupeeHeight = 3.8;
+        const rupeeX = right - amountWidth - 1.2 - rupeeWidth;
+        doc.addImage(rupeePng, 'PNG', rupeeX, amountY - 3.1, rupeeWidth, rupeeHeight, undefined, 'FAST');
         doc.text(amountText, right, amountY, { align: 'right' });
         y += 8;
 
@@ -288,46 +291,24 @@ function TransferSuccess() {
                         </p>
                         
                         <div className="mt-3 pt-3 border-t border-dashed space-y-0.5">
-                           <DetailRow label="FROM">
-                                <div className="w-full min-w-0">
-                                    <p className="text-right font-semibold text-gray-800 uppercase">{user.name}</p>
-                                    <div className="mt-1 grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2">
-                                        <span className="text-left text-gray-500">Account number</span>
-                                        <span className="flex min-w-0 items-center justify-end gap-1 whitespace-nowrap text-gray-600">
-                                            {settings.appLogo && <Image src={settings.appLogo} width={16} height={16} alt="PNB ONE app logo" className="shrink-0" />}
-                                            <span>{account.accountNumber}</span>
-                                        </span>
-                                    </div>
-                                </div>
+                            <DetailRow label="FROM"><span className="font-semibold text-gray-800 uppercase">{user.name}</span></DetailRow>
+                            <DetailRow label="Account number">
+                                <span className="inline-flex items-center justify-end gap-0.5 whitespace-nowrap text-gray-600">
+                                    {settings.appLogo && <Image src={settings.appLogo} width={16} height={16} alt="PNB ONE app logo" className="shrink-0" />}
+                                    <span>{account.accountNumber}</span>
+                                </span>
                             </DetailRow>
-                            <DetailRow label="TO">
-                                <div className="w-full min-w-0">
-                                    <p className="text-right font-semibold text-gray-800">{payee.name}</p>
-                                    <div className="mt-1 grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2">
-                                        <span className="text-left text-gray-500">Payee account number</span>
-                                        <span className="flex min-w-0 items-center justify-end gap-1 whitespace-nowrap text-gray-600">
-                                            <Landmark className="h-4 w-4 shrink-0 text-gray-500" aria-label="Bank" />
-                                            <span>{payee.accountNumber}</span>
-                                        </span>
-                                    </div>
-                                    <div className="mt-1 grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2">
-                                        <span className="text-left text-gray-500">IFSC</span>
-                                        <span className="text-right text-gray-600">{String(payee.ifsc || '-').toUpperCase()}</span>
-                                    </div>
-                                </div>
-                            </DetailRow>
+                            <DetailRow label="TO"><span className="font-semibold text-gray-800">{payee.name}</span></DetailRow>
+                            <DetailRow label="Payee account number"><span className="inline-flex items-center justify-end gap-1 whitespace-nowrap text-gray-600"><Landmark className="h-4 w-4 shrink-0 text-gray-500" aria-label="Bank" /><span>{payee.accountNumber}</span></span></DetailRow>
+                            <DetailRow label="IFSC"><span className="text-gray-600">{String(payee.ifsc || '-').toUpperCase()}</span></DetailRow>
                             <DetailRow label="AMOUNT">
-                                 <div className="flex flex-col items-end">
-                                    <p className="font-bold text-base text-gray-900 flex items-center justify-end gap-1 tracking-normal"><RupeeIcon className="h-4 w-4 shrink-0" />{formatCurrency(amount)}</p>
-                                    <p className="text-[10px] text-gray-500 max-w-48 break-words text-right">{amountInWords}</p>
+                                <div className="flex flex-col items-end">
+                                    <p className="flex items-center justify-end gap-1 text-base font-bold tracking-normal text-gray-900"><RupeeIcon className="h-4 w-4 shrink-0" />{formatCurrency(amount)}</p>
+                                    <p className="max-w-48 break-words text-right text-[10px] text-gray-500">{amountInWords}</p>
                                 </div>
                             </DetailRow>
-                             <DetailRow label="Remarks">
-                                <span className="font-semibold text-gray-800">{remarks || '-'}</span>
-                            </DetailRow>
-                             <DetailRow label="Transfer date">
-                                <span className="font-semibold text-gray-800">{format(transferDate, 'dd MMM yyyy, h:mm a')}</span>
-                            </DetailRow>
+                            <DetailRow label="Remarks"><span className="font-semibold text-gray-800">{remarks || '-'}</span></DetailRow>
+                            <DetailRow label="Transfer date"><span className="font-semibold text-gray-800">{format(transferDate, 'dd MMM yyyy, h:mm a')}</span></DetailRow>
                         </div>
                     </CardContent>
                 </Card>
