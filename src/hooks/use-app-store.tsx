@@ -15,7 +15,7 @@ const AppContext = createContext<{
 const appReducer = (state: AppState, action: Action): AppState => {
   switch (action.type) {
     case 'INITIALIZE_STATE':
-      return { ...action.payload, isStateInitialized: true };
+      return { ...action.payload, isAuthenticated: false, loginPending: false, isLoggingOut: false, isStateInitialized: true };
     case 'LOGIN':
       return { ...state, isAuthenticated: true, loginPending: false };
     case 'LOGIN_PENDING':
@@ -131,7 +131,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
     case 'RESET_STATE': {
         clearStateFromIndexedDB().catch(err => console.error("Failed to clear IndexedDB on reset", err));
         try { window.localStorage.removeItem(LOCAL_STORAGE_KEY); } catch (error) { console.warn('Could not clear localStorage.', error); }
-        const newState = {...defaultState, isAuthenticated: state.isAuthenticated, isStateInitialized: true, loginPending: false};
+        const newState = {...defaultState, isAuthenticated: false, isStateInitialized: true, loginPending: false, isLoggingOut: false};
         saveStateToIndexedDB(newState).catch(err => console.error("Failed to save default state to IndexedDB on reset", err));
         return newState;
     }

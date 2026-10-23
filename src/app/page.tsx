@@ -34,9 +34,22 @@ export default function LoginPage() {
   const { toast } = useToast();
   const { state, dispatch } = useAppContext();
   const router = useRouter();
-  const carouselApi = useRef<CarouselApi>();
+  const [carouselApi, setCarouselApi] = useState<CarouselApi | undefined>(undefined);
+  const [activeBannerIndex, setActiveBannerIndex] = useState(0);
 
   const pinInputsRef = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    if (!carouselApi) return;
+    const syncActiveDot = () => setActiveBannerIndex(carouselApi.selectedScrollSnap());
+    syncActiveDot();
+    carouselApi.on("select", syncActiveDot);
+    carouselApi.on("reInit", syncActiveDot);
+    return () => {
+      carouselApi.off("select", syncActiveDot);
+      carouselApi.off("reInit", syncActiveDot);
+    };
+  }, [carouselApi]);
 
   useEffect(() => {
     const getGreeting = () => {
@@ -131,7 +144,7 @@ export default function LoginPage() {
                 <Carousel
                   opts={{loop: true}}
                   plugins={[Autoplay({ delay: 3000, stopOnInteraction: false })]}
-                  setApi={(api) => { carouselApi.current = api; }}
+                  setApi={setCarouselApi}
                   className="w-full"
                 >
                     <CarouselContent>
@@ -146,7 +159,7 @@ export default function LoginPage() {
                 </Carousel>
                 <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5">
                     {carouselBanners.map((_, i) => (
-                        <button key={i} onClick={() => carouselApi.current?.scrollTo(i)} className={cn("h-1.5 w-1.5 rounded-full transition-all", i === (carouselApi.current?.selectedScrollSnap() ?? 0) ? "bg-white w-4" : "bg-white/50")}/>
+                        <button key={i} onClick={() => carouselApi?.scrollTo(i)} aria-label={`Show banner ${i + 1}`} aria-current={i === activeBannerIndex ? "true" : undefined} className={cn("h-1.5 w-1.5 rounded-full transition-all", i === activeBannerIndex ? "bg-white w-4" : "bg-white/50")}/>
                     ))}
                 </div>
             </div>

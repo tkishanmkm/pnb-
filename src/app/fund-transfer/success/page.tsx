@@ -115,107 +115,153 @@ function TransferSuccess() {
     const formattedAmountWithCommas = amount.toLocaleString('en-IN', { useGrouping: true, minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const transferDate = new Date(transferDateStr);
     
-    const handleShare = () => {
-        const doc = new jsPDF();
+    const handleShare = async () => {
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         const pageWidth = doc.internal.pageSize.getWidth();
-        const rightMargin = pageWidth - 20;
+        const margin = 18;
+        const right = pageWidth - margin;
+        const contentWidth = pageWidth - margin * 2;
+        let y = 16;
 
-        // 1. Bank Logo from settings
+        // Keep the application logo's true aspect ratio instead of stretching it.
         if (settings.appLogo) {
             try {
-                const imageType = settings.appLogo.split(';')[0].split('/')[1].toUpperCase();
-                 // Make logo smaller and maintain aspect ratio
-                doc.addImage(settings.appLogo, imageType, (pageWidth / 2) - 20, 15, 40, 15, undefined, 'FAST');
-            } catch (e) {
-                console.error("Error adding logo to PDF", e);
+                const logoInfo = doc.getImageProperties(settings.appLogo);
+                const maxWidth = 42;
+                const maxHeight = 18;
+                const scale = Math.min(maxWidth / logoInfo.width, maxHeight / logoInfo.height);
+                const logoWidth = logoInfo.width * scale;
+                const logoHeight = logoInfo.height * scale;
+                doc.addImage(settings.appLogo, logoInfo.fileType, (pageWidth - logoWidth) / 2, y, logoWidth, logoHeight, undefined, 'FAST');
+                y += logoHeight + 7;
+            } catch (error) {
+                console.warn('Receipt logo could not be embedded; continuing without logo.', error);
+                y += 6;
             }
+        } else {
+            y += 5;
         }
-        
-        // 2. Success text
-        doc.setFontSize(18);
-        doc.setFont("helvetica", "normal");
-        doc.text("Success", pageWidth / 2, 45, { align: "center" });
 
-        // 3. Reference text
-        doc.setFontSize(10);
-        doc.text(`Transaction with reference id ${displayReferenceId} processed successfully. The RRN for the transaction is: ${displayRrn}`, pageWidth / 2, 55, { align: "center", maxWidth: pageWidth - 40 });
-        
-        // 4. Dashed line
-        doc.setLineDashPattern([2, 2], 0);
-        doc.line(20, 65, pageWidth - 20, 65);
+        doc.setTextColor(25, 65, 112);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(19);
+        doc.text('Payment Successful', pageWidth / 2, y, { align: 'center' });
+        y += 7;
+
+        doc.setTextColor(90, 98, 108);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        const referenceText = `Transaction reference: ${displayReferenceId}\nRRN: ${(displayRrn.split('/')[1] || displayRrn)}`;
+        const referenceLines = doc.splitTextToSize(referenceText, contentWidth - 8);
+        doc.text(referenceLines, pageWidth / 2, y, { align: 'center' });
+        y += referenceLines.length * 4.5 + 5;
+
+        doc.setDrawColor(160, 170, 180);
+        doc.setLineDashPattern([1.5, 1.5], 0);
+        doc.line(margin, y, right, y);
         doc.setLineDashPattern([], 0);
+        y += 8;
 
-        // 5. Transaction Details
-        let yPos = 75;
-        const leftMargin = 20;
-
-        const addDetailRow = (label: string, value: string, valueOptions: { bold?: boolean; isMultiLine?: boolean } = {}) => {
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(12);
-            doc.text(label, leftMargin, yPos);
-            
-            doc.setFont("helvetica", valueOptions.bold ? "bold" : "normal");
-            const textOptions = { align: 'right' as const, maxWidth: pageWidth - leftMargin - 90 };
-            
-            if (valueOptions.isMultiLine) {
-                 doc.text(value, rightMargin, yPos, textOptions);
-                 const textDimensions = doc.getTextDimensions(value, textOptions);
-                 yPos += textDimensions.h + 2; // Add padding for multiline
-            } else {
-                 doc.text(value, rightMargin, yPos, textOptions);
-                 yPos += 7;
-            }
-            doc.setFont("helvetica", "normal"); // Reset font
+        const addSectionTitle = (title: string) => {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(25, 65, 112);
+            doc.text(title, margin, y);
+            y += 5;
         };
 
-        const addIconAndText = (text: string, iconSrc: string, iconOptions: {x: number, y: number, w: number, h: number}, textOptions: { bold?: boolean } = {}) => {
-            if (iconSrc) {
-                try {
-                    const imageType = iconSrc.split(';')[0].split('/')[1].toUpperCase();
-                    doc.addImage(iconSrc, imageType, iconOptions.x, iconOptions.y, iconOptions.w, iconOptions.h, undefined, 'FAST');
-                } catch (e) { console.error("Error adding inline logo", e); }
-            }
-             doc.setFont("helvetica", textOptions.bold ? "bold" : "normal");
-             doc.text(text, rightMargin, yPos, { align: 'right' });
-             yPos += 7;
+        const addRow = (label: string, value: string, bold = false) => {
+            const labelWidth = 31;
+            const valueWidth = contentWidth - labelWidth;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(100, 106, 114);
+            doc.text(label, margin, y);
+            doc.setFont('helvetica', bold ? 'bold' : 'normal');
+            doc.setTextColor(35, 40, 46);
+            const lines = doc.splitTextToSize(value || '-', valueWidth);
+            doc.text(lines, right, y, { align: 'right' });
+            y += Math.max(6, lines.length * 4.6) + 1.5;
         };
-        
-        // From Section
-        doc.text('From', leftMargin, yPos);
-        addIconAndText(
-            user.name, 
-            settings.appLogo, 
-            { x: rightMargin - 45, y: yPos - 5, w: 8, h: 8},
-            { bold: true }
-        );
-        addDetailRow("", `...${account.accountNumber.slice(-4)}`);
-        
-        // To Section
-        yPos += 3;
-        doc.text('To', leftMargin, yPos);
-        addDetailRow("", payee.name, { bold: true });
-        // Standard bank icon (grey box for now)
-        doc.setFillColor(200, 200, 200);
-        doc.rect(rightMargin - 65, yPos - 5, 5, 5, 'F');
-        addDetailRow("", `${payee.accountNumber} (${payee.ifsc})`);
-        
-        // Amount Section
-        yPos += 3;
-        doc.text('Amount', leftMargin, yPos);
-        addDetailRow("", `₹ ${formattedAmountWithCommas}`, { bold: true });
-        addDetailRow("", amountInWords, { isMultiLine: true });
-        
-        // Remarks
-        yPos += 3;
-        addDetailRow("Remarks", remarks || '-', { bold: true });
-        
-        // Transfer Date
-        addDetailRow("Transfer date", format(transferDate, 'dd MMM yyyy, h:mm a'), { bold: true });
 
+        addSectionTitle('FROM');
+        addRow('Account holder', user.name, true);
+        addRow('Account number', `•••• ${String(account.accountNumber).slice(-4)}`);
 
-        doc.save(`Receipt-${displayReferenceId}.pdf`);
+        y += 2;
+        addSectionTitle('TO');
+        addRow('Payee name', payee.name, true);
+        // Standard neutral bank mark drawn as vector geometry for crisp Windows/iOS output.
+        const bankIconX = right - 6;
+        doc.setDrawColor(120, 130, 142);
+        doc.setFillColor(238, 241, 245);
+        doc.rect(bankIconX, y - 1.5, 6, 5, 'FD');
+        doc.setDrawColor(100, 110, 122);
+        doc.line(bankIconX + 0.8, y - 0.3, bankIconX + 5.2, y - 0.3);
+        doc.line(bankIconX + 1.2, y + 0.5, bankIconX + 1.2, y + 2.5);
+        doc.line(bankIconX + 3, y + 0.5, bankIconX + 3, y + 2.5);
+        doc.line(bankIconX + 4.8, y + 0.5, bankIconX + 4.8, y + 2.5);
+        doc.line(bankIconX + 0.5, y + 3, bankIconX + 5.5, y + 3);
+        addRow('Bank details', `${payee.accountNumber} · ${payee.ifsc}`);
+
+        y += 2;
+        doc.setDrawColor(215, 220, 226);
+        doc.line(margin, y, right, y);
+        y += 7;
+        addSectionTitle('TRANSFER DETAILS');
+
+        // Draw a small rupee symbol as a vector mark so it is not lost by jsPDF's
+        // built-in Helvetica font on Windows or iOS PDF viewers.
+        const amountY = y;
+        doc.setDrawColor(25, 65, 112);
+        doc.setLineWidth(0.55);
+        doc.line(margin + 0.5, amountY - 3.2, margin + 3.7, amountY - 3.2);
+        doc.line(margin + 0.5, amountY - 1.7, margin + 3.7, amountY - 1.7);
+        doc.line(margin + 1.1, amountY - 4.3, margin + 1.1, amountY - 0.5);
+        doc.line(margin + 1.1, amountY - 4.3, margin + 2.4, amountY - 4.3);
+        doc.line(margin + 1.1, amountY - 1.7, margin + 3.1, amountY + 1.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(15);
+        doc.setTextColor(25, 65, 112);
+        doc.text(formattedAmountWithCommas, margin + 6, y);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(100, 106, 114);
+        doc.text('Amount', right, y, { align: 'right' });
+        y += 8;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(80, 86, 95);
+        const wordsLines = doc.splitTextToSize(amountInWords, contentWidth);
+        doc.text(wordsLines, margin, y);
+        y += wordsLines.length * 4.2 + 4;
+
+        addRow('Remark', remarks || '-', false);
+        addRow('Transfer date', format(transferDate, 'dd MMM yyyy, h:mm a'), true);
+        addRow('Reference ID', displayReferenceId);
+        addRow('RRN', (displayRrn.split('/')[1] || displayRrn));
+
+        const filename = `Receipt-${displayReferenceId}.pdf`;
+        const pdfBlob = doc.output('blob');
+        const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
+
+        try {
+            if (typeof navigator !== 'undefined' &&
+                typeof navigator.share === 'function' &&
+                typeof navigator.canShare === 'function' &&
+                navigator.canShare({ files: [pdfFile] })) {
+                await navigator.share({ files: [pdfFile], title: filename });
+                return;
+            }
+        } catch (error) {
+            // User cancellation should not trigger a forced download or an error toast.
+            if (error instanceof DOMException && error.name === 'AbortError') return;
+            console.warn('Native receipt sharing unavailable; falling back to PDF download.', error);
+        }
+
+        doc.save(filename);
     };
-
     const rrnNumber = displayRrn.split('/')[1] || displayRrn;
 
     return (
