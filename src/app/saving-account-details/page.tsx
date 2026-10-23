@@ -58,6 +58,7 @@ export default function SavingAccountDetailsPage() {
     const { state } = useAppContext();
     const router = useRouter();
     const [isDetailsVisible, setIsDetailsVisible] = useState(false);
+    const [selectedQuarter, setSelectedQuarter] = useState("2026-Q3");
 
     if (!state) return null;
 
@@ -68,8 +69,35 @@ export default function SavingAccountDetailsPage() {
     const firstName = accountHolderParts[0];
     const lastName = accountHolderParts.slice(1).join(" ");
     
-    const averageQuarterlyBalance = account.averageQuarterlyBalance || 0;
-    
+    const automaticQuarterBalance = (() => {
+        const [yearText, quarterText] = selectedQuarter.split("-Q");
+        const year = Number(yearText);
+        const quarter = Number(quarterText);
+        const start = new Date(year, (quarter - 1) * 3, 1);
+        const end = new Date(year, quarter * 3, 0);
+        const dayCount = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+        const accountTransactions = transactions
+            .filter(tx => tx.accountId === account.id && Number.isFinite(new Date(tx.date).getTime()))
+            .map(tx => ({ ...tx, day: new Date(tx.date).getFullYear() + "-" + String(new Date(tx.date).getMonth() + 1).padStart(2, "0") + "-" + String(new Date(tx.date).getDate()).padStart(2, "0") }))
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        if (accountTransactions.length === 0) return account.balance;
+        const startKey = start.getFullYear() + "-" + String(start.getMonth() + 1).padStart(2, "0") + "-" + String(start.getDate()).padStart(2, "0");
+        // Reverse transactions from the quarter start onward to infer its opening balance,
+        // then replay them day-by-day to calculate a daily-weighted average.
+        const signedAmount = (tx: typeof accountTransactions[number]) => tx.type === "credit" ? Math.abs(tx.amount) : -Math.abs(tx.amount);
+        let balance = account.balance - accountTransactions.filter(tx => tx.day >= startKey).reduce((sum, tx) => sum + signedAmount(tx), 0);
+        let weightedTotal = 0;
+        for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+            const dayKey = cursor.getFullYear() + "-" + String(cursor.getMonth() + 1).padStart(2, "0") + "-" + String(cursor.getDate()).padStart(2, "0");
+            for (const tx of accountTransactions) if (tx.day === dayKey) balance += signedAmount(tx);
+            weightedTotal += balance;
+        }
+        return Math.round((weightedTotal / dayCount) * 100) / 100;
+    })();
+    const averageQuarterlyBalance = account.averageQuarterlyBalance !== undefined && account.averageQuarterlyBalance !== null
+        ? account.averageQuarterlyBalance
+        : automaticQuarterBalance;
+
     const last10Transactions = [...transactions]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 10);
@@ -128,14 +156,19 @@ export default function SavingAccountDetailsPage() {
                             <h2 className="font-semibold text-sm text-gray-700">Account Summary</h2>
                             <Info className="h-3.5 w-3.5 text-gray-500" />
                         </div>
-                        <Select defaultValue="q2-2025">
+                        <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
                             <SelectTrigger className="w-auto border-none shadow-none text-xs h-8 bg-transparent">
                                 <SelectValue placeholder="Select Quarter" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="q2-2025">Q2(Jul-Sep) 2025</SelectItem>
-                                <SelectItem value="q1-2025">Q1(Apr-Jun) 2025</SelectItem>
-                                <SelectItem value="q4-2024">Q4(Jan-Mar) 2025</SelectItem>
+                                <SelectItem value="2026-Q4">Q4 (Oct-Dec) 2026</SelectItem>
+                                <SelectItem value="2026-Q3">Q3 (Jul-Sep) 2026</SelectItem>
+                                <SelectItem value="2026-Q2">Q2 (Apr-Jun) 2026</SelectItem>
+                                <SelectItem value="2026-Q1">Q1 (Jan-Mar) 2026</SelectItem>
+                                <SelectItem value="2025-Q4">Q4 (Oct-Dec) 2025</SelectItem>
+                                <SelectItem value="2025-Q3">Q3 (Jul-Sep) 2025</SelectItem>
+                                <SelectItem value="2025-Q2">Q2 (Apr-Jun) 2025</SelectItem>
+                                <SelectItem value="2025-Q1">Q1 (Jan-Mar) 2025</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
