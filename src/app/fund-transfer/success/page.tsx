@@ -243,23 +243,8 @@ function TransferSuccess() {
         addRow('RRN', (displayRrn.split('/')[1] || displayRrn));
 
         const filename = `Receipt-${displayReferenceId}.pdf`;
-        const pdfBlob = doc.output('blob');
-        const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
-
-        try {
-            if (typeof navigator !== 'undefined' &&
-                typeof navigator.share === 'function' &&
-                typeof navigator.canShare === 'function' &&
-                navigator.canShare({ files: [pdfFile] })) {
-                await navigator.share({ files: [pdfFile], title: filename });
-                return;
-            }
-        } catch (error) {
-            // User cancellation should not trigger a forced download or an error toast.
-            if (error instanceof DOMException && error.name === 'AbortError') return;
-            console.warn('Native receipt sharing unavailable; falling back to PDF download.', error);
-        }
-
+        // Download the PDF directly instead of opening the iOS share sheet first.
+        // iOS Safari can still choose its built-in PDF viewer; this is controlled by iOS.
         doc.save(filename);
     };
     const rrnNumber = displayRrn.split('/')[1] || displayRrn;
@@ -323,8 +308,8 @@ function TransferSuccess() {
 
                  <div className="flex justify-center w-full mt-4 gap-8 text-primary">
                     <button className="flex flex-col items-center gap-1" onClick={handleShare}>
-                        <Share2 className="h-5 w-5"/>
-                        <span className="text-xs">Share</span>
+                        <Download className="h-5 w-5"/>
+                        <span className="text-xs">Download PDF</span>
                     </button>
                 </div>
             </main>

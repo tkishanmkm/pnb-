@@ -109,31 +109,21 @@ export function StatementContent() {
             const downloadDate = format(new Date(), 'ddMMyyyy');
             const filename = 'PNBONE_STMT_XX' + lastFour + '_' + downloadDate + '.pdf';
 
-            // iOS Safari/Chrome may ignore <a download> for blob URLs. Prefer the
-            // native share sheet so the user can choose Save to Files with the filename.
-            const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
-            if (typeof navigator !== 'undefined' &&
-                typeof navigator.share === 'function' &&
-                typeof navigator.canShare === 'function' &&
-                navigator.canShare({ files: [pdfFile] })) {
-                await navigator.share({ files: [pdfFile], title: filename });
-                toast({ title: "Statement ready", description: "Choose Save to Files in the iPhone share sheet to save the PDF." });
-                return;
-            }
-
+            // Prefer a direct download attempt on every browser, including iPhone Safari.
+            // iOS may still present its PDF viewer depending on OS/browser policy.
             const blobUrl = URL.createObjectURL(pdfBlob);
             const link = document.createElement('a');
             link.href = blobUrl;
             link.download = filename;
+            link.setAttribute('download', filename);
             link.rel = 'noopener';
             link.style.display = 'none';
             document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
-            // iOS may need time to begin the native download/open flow.
+            link.remove();
             window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 
-            toast({ title: "Download Started", description: "If your browser opens the PDF, use Share and choose Save to Files." });
+            toast({ title: "Download Requested", description: "If iPhone Safari opens the PDF instead, use the Share button and choose Save to Files; iOS may override web download behavior." });
         } catch (error) {
             console.error("PDF Generation/Download Error:", error);
             toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'Failed to generate or download PDF.' });
