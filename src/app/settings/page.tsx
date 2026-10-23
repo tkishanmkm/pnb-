@@ -617,7 +617,17 @@ const DataManagement = () => {
                         isStateInitialized: true,
                         loginPending: false,
                         isLoggingOut: false,
-                        user: { ...defaultState.user, ...source.user },
+                        // Backups omit reusable PIN secrets. Preserve configured PINs on this device.
+                        user: {
+                            ...defaultState.user,
+                            ...source.user,
+                            mpin: typeof source.user.mpin === 'string' && /^\d{4}$/.test(source.user.mpin)
+                                ? source.user.mpin
+                                : (/^\d{4}$/.test(state.user.mpin || '') ? state.user.mpin : defaultState.user.mpin),
+                            tpin: typeof source.user.tpin === 'string' && /^\d{4}$/.test(source.user.tpin)
+                                ? source.user.tpin
+                                : (/^\d{4}$/.test(state.user.tpin || '') ? state.user.tpin : defaultState.user.tpin),
+                        },
                         accounts,
                         transactions,
                         payees: Array.isArray(source.payees) ? source.payees : [],
