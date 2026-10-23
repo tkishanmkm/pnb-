@@ -317,7 +317,7 @@ const AssetSettings = () => {
             reader.onerror = (error) => {
                 console.error("FileReader error reading asset file:", error);
             };
-            reader.readAsDataURL(file);
+            reader.readAsArrayBuffer(file);
         }
     };
     
@@ -741,7 +741,7 @@ const IconAssetsSettings = () => {
             reader.onerror = (error) => {
                 console.error("FileReader error reading icon asset:", error);
             };
-            reader.readAsDataURL(file);
+            reader.readAsArrayBuffer(file);
         }
     };
 
@@ -845,11 +845,14 @@ const PdfExtraction = () => {
             const reader = new FileReader();
             reader.onload = async (event) => {
                 try {
-                    const dataUri = event.target?.result as string;
-                    const [details, results] = await Promise.all([
-                        extractStatementDetailsFromPdf(dataUri),
-                        extractTransactionsFromPdf(dataUri),
-                    ]);
+                    const pdfBuffer = event.target?.result as ArrayBuffer;
+                    if (!(pdfBuffer instanceof ArrayBuffer) || pdfBuffer.byteLength < 5) {
+                        throw new Error('Safari could not read this PDF file. Please save it to Files and select it again.');
+                    }
+                    const pdfBytes = new Uint8Array(pdfBuffer);
+                    // Process sequentially on iOS to avoid parsing the same large PDF twice at once.
+                    const details = await extractStatementDetailsFromPdf(pdfBytes);
+                    const results = await extractTransactionsFromPdf(pdfBytes);
                     const accountNumber = details.accountNumber;
                     const destinationAccountId = accountNumber ? 'statement-' + accountNumber.replace(/\D/g, '') : 'statement-import';
                     setStatementDetails(details);
@@ -879,7 +882,7 @@ const PdfExtraction = () => {
                 setIsExtracting(false);
                 toast({ variant: 'destructive', title: 'File read failed', description: 'Safari could not read this PDF. Try saving it to Files and selecting it again.' });
             };
-            reader.readAsDataURL(file);
+            reader.readAsArrayBuffer(file);
         } catch (error) {
             console.error("Failed to start extracting transactions:", error);
             setIsExtracting(false);

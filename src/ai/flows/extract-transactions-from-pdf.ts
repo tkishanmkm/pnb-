@@ -3,7 +3,7 @@ import type { Transaction } from '@/lib/types';
 // Load PDF.js only when extraction is requested; eager worker initialization
 // can crash iOS browsers before Settings renders.
 async function loadPdfJs() {
-  const pdfjsLib = await import('pdfjs-dist');
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
   if (typeof window !== 'undefined') {
     // Resolve against the active origin so iOS Safari/Chrome doesn't interpret
     // the worker URL relative to a nested route or query string.
@@ -12,7 +12,7 @@ async function loadPdfJs() {
   return pdfjsLib;
 }
 
-async function openPdfDocument(pdfjsLib: typeof import('pdfjs-dist'), bytes: Uint8Array) {
+async function openPdfDocument(pdfjsLib: typeof import('pdfjs-dist/legacy/build/pdf.mjs'), bytes: Uint8Array) {
   // Avoid eval-based font compilation and use browser fonts where available;
   // both settings are safer across WebKit and do not weaken PDF parsing.
   return pdfjsLib.getDocument({ data: bytes, useSystemFonts: true, isEvalSupported: false, useWorkerFetch: false }).promise;
@@ -21,6 +21,21 @@ async function openPdfDocument(pdfjsLib: typeof import('pdfjs-dist'), bytes: Uin
 
 const DATE_PATTERN = /^(\d{2}[/-]\d{2}[/-]\d{4}|\d{4}[/-]\d{2}[/-]\d{2})$/;
 const AMOUNT_PATTERN = /^\(?-?\d[\d,]*(?:\.\d{1,2})?\)?$/;
+
+type PdfInput = string | ArrayBuffer | Uint8Array;
+
+function getPdfBytes(input: PdfInput): Uint8Array {
+  if (typeof input !== 'string') {
+    // PDF.js may transfer and detach the input buffer to its worker. Copy it
+    // so the caller can safely reuse the original bytes for the second pass.
+    return input instanceof Uint8Array ? input.slice() : new Uint8Array(input);
+  }
+  const base64 = input.includes(',') ? input.slice(input.indexOf(',') + 1) : input;
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
 
 function parseDate(value: string): string | null {
   const trimmed = value.trim();
@@ -53,9 +68,8 @@ function parseReference(description: string): string | undefined {
   return undefined;
 }
 
-export async function extractStatementAccountNumberFromPdf(pdfDataUri: string): Promise<string | null> {
-  const base64 = pdfDataUri.includes(',') ? pdfDataUri.slice(pdfDataUri.indexOf(',') + 1) : pdfDataUri;
-  const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+export async function extractStatementAccountNumberFromPdf(pdfDataUri: PdfInput): Promise<string | null> {
+  const bytes = getPdfBytes(pdfDataUri);
   const pdfjsLib = await loadPdfJs();
   const pdf = await openPdfDocument(pdfjsLib, bytes);
   const page = await pdf.getPage(1);
@@ -86,9 +100,8 @@ export interface ExtractedStatementDetails {
   closingBalance: number | null;
 }
 
-export async function extractStatementDetailsFromPdf(pdfDataUri: string): Promise<ExtractedStatementDetails> {
-  const base64 = pdfDataUri.includes(',') ? pdfDataUri.slice(pdfDataUri.indexOf(',') + 1) : pdfDataUri;
-  const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+export async function extractStatementDetailsFromPdf(pdfDataUri: PdfInput): Promise<ExtractedStatementDetails> {
+  const bytes = getPdfBytes(pdfDataUri);
   const pdfjsLib = await loadPdfJs();
   const pdf = await openPdfDocument(pdfjsLib, bytes);
   const lines: string[] = [];
@@ -182,10 +195,9 @@ export async function extractStatementDetailsFromPdf(pdfDataUri: string): Promis
   };
 }
 
-export async function extractTransactionsFromPdf(pdfDataUri: string, accountId = 'unknown'): Promise<Transaction[]> {
+export async function extractTransactionsFromPdf(pdfDataUri: PdfInput, accountId = 'unknown'): Promise<Transaction[]> {
   try {
-    const base64 = pdfDataUri.includes(',') ? pdfDataUri.slice(pdfDataUri.indexOf(',') + 1) : pdfDataUri;
-    const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+    const bytes = getPdfBytes(pdfDataUri);
     const pdfjsLib = await loadPdfJs();
   const pdf = await openPdfDocument(pdfjsLib, bytes);
     const transactions: Transaction[] = [];
