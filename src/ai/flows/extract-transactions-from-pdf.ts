@@ -7,7 +7,7 @@ async function loadPdfJs() {
   if (typeof window !== 'undefined') {
     // Resolve against the active origin so iOS Safari/Chrome doesn't interpret
     // the worker URL relative to a nested route or query string.
-    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('/pdf.worker.min.mjs', window.location.origin).href;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('/pdf.worker.min.mjs?v=legacy-4.10.38', window.location.origin).href;
   }
   return pdfjsLib;
 }
