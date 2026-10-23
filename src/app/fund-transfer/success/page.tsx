@@ -17,9 +17,9 @@ import jsPDF from 'jspdf';
 import * as numberToWords from 'number-to-words';
 
 const DetailRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="flex justify-between items-start py-1.5">
-        <span className="text-xs text-gray-500">{label}</span>
-        <div className="text-right text-xs">{children}</div>
+    <div className="flex w-full justify-between items-start gap-2 py-1.5">
+        <span className="shrink-0 text-left text-xs text-gray-500">{label}</span>
+        <div className="min-w-0 flex-1 text-right text-xs">{children}</div>
     </div>
 );
 
@@ -211,11 +211,7 @@ function TransferSuccess() {
         const payeeAccount = String(payee.accountNumber || '-');
         doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 106, 114);
         doc.text('Payee account number', margin, y);
-        const payeeAccountWidth = doc.getTextWidth(payeeAccount);
-        const payeeIconX = right - payeeAccountWidth - 2 - 6;
-        doc.setDrawColor(120, 130, 142); doc.setFillColor(238, 241, 245); doc.rect(payeeIconX, y - 3.5, 6, 5, 'FD');
-        doc.setDrawColor(100, 110, 122); doc.line(payeeIconX + 0.8, y - 2.3, payeeIconX + 5.2, y - 2.3);
-        doc.line(payeeIconX + 1.2, y - 1.5, payeeIconX + 1.2, y + 0.5); doc.line(payeeIconX + 3, y - 1.5, payeeIconX + 3, y + 0.5); doc.line(payeeIconX + 4.8, y - 1.5, payeeIconX + 4.8, y + 0.5); doc.line(payeeIconX + 0.5, y + 1, payeeIconX + 5.5, y + 1);
+        // Keep the payee account value plain: no bank icon in the PDF receipt.
         doc.setTextColor(35, 40, 46); doc.text(payeeAccount, right, y, { align: 'right' }); y += 7.5;
         addRow('IFSC code', String(payee.ifsc || '-').toUpperCase());
 
@@ -237,14 +233,16 @@ function TransferSuccess() {
         const amountText = formattedAmountWithCommas;
         const amountWidth = doc.getTextWidth(amountText);
         const rupeeX = right - amountWidth - 5;
-        // Simple vector ? mark (two bars, stem, and diagonal leg), right beside the value.
+        // Compact vector rupee glyph, aligned with the amount baseline.
         doc.setDrawColor(25, 65, 112);
-        doc.setLineWidth(0.55);
-        doc.line(rupeeX, amountY - 3.2, rupeeX + 3.2, amountY - 3.2);
-        doc.line(rupeeX, amountY - 1.7, rupeeX + 3.2, amountY - 1.7);
-        doc.line(rupeeX + 0.6, amountY - 4.3, rupeeX + 0.6, amountY - 0.5);
-        doc.line(rupeeX + 0.6, amountY - 4.3, rupeeX + 1.9, amountY - 4.3);
-        doc.line(rupeeX + 0.6, amountY - 1.7, rupeeX + 2.6, amountY + 1.5);
+        doc.setLineWidth(0.45);
+        doc.line(rupeeX, amountY - 3.4, rupeeX + 3.6, amountY - 3.4);
+        doc.line(rupeeX, amountY - 2.1, rupeeX + 3.6, amountY - 2.1);
+        doc.line(rupeeX + 0.35, amountY - 4.2, rupeeX + 0.35, amountY - 0.2);
+        doc.line(rupeeX + 0.35, amountY - 4.2, rupeeX + 1.65, amountY - 4.2);
+        doc.line(rupeeX + 0.35, amountY - 2.1, rupeeX + 2.25, amountY - 2.1);
+        doc.lines([[1.1,0],[0.45,0.25],[0.2,0.5],[-0.1,0.55],[-0.45,0.4],[-0.65,0.3]], rupeeX + 1.65, amountY - 4.2, [1,1], 'S', false);
+        doc.line(rupeeX + 0.45, amountY - 1.5, rupeeX + 2.8, amountY + 1.4);
         doc.text(amountText, right, amountY, { align: 'right' });
         y += 8;
 
