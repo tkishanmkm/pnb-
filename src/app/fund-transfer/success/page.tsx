@@ -186,34 +186,37 @@ function TransferSuccess() {
 
         addSectionTitle('FROM');
         addRow('Account holder', user.name, true);
-        // Keep the original receipt row layout; place the app logo before the full account number.
+        // Account number label on the left; app logo immediately before the full number on the right.
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 106, 114);
+        doc.text('Account number', margin, y);
+        const senderNumber = String(account.accountNumber || '-');
+        const senderNumberWidth = doc.getTextWidth(senderNumber);
+        let senderNumberX = right;
         if (settings.appLogo) {
             try {
                 const logoInfo = doc.getImageProperties(settings.appLogo);
                 const logoHeight = 4;
                 const logoWidth = Math.min(logoHeight * (logoInfo.width / logoInfo.height), 10);
-                doc.addImage(settings.appLogo, logoInfo.fileType, margin, y - 3.2, logoWidth, logoHeight, undefined, 'FAST');
-                doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 106, 114);
-                doc.text(String(account.accountNumber || '-'), right, y, { align: 'right' });
-                y += 7.5;
-            } catch (error) { console.warn('Could not add app logo to receipt.', error); addRow('Account number', String(account.accountNumber || '-')); }
-        } else { addRow('Account number', String(account.accountNumber || '-')); }
+                senderNumberX = right - senderNumberWidth - 2;
+                doc.addImage(settings.appLogo, logoInfo.fileType, senderNumberX - logoWidth - 2, y - 3.2, logoWidth, logoHeight, undefined, 'FAST');
+            } catch (error) { console.warn('Could not add app logo to receipt.', error); }
+        }
+        doc.setTextColor(35, 40, 46); doc.text(senderNumber, right, y, { align: 'right' });
+        y += 7.5;
 
         y += 2;
         addSectionTitle('TO');
         addRow('Payee name', payee.name, true);
-        // Standard bank icon sits before the payee account number, clear of its digits.
-        const bankIconX = margin;
-        doc.setDrawColor(120, 130, 142);
-        doc.setFillColor(238, 241, 245);
-        doc.rect(bankIconX, y - 3.5, 6, 5, 'FD');
-        doc.setDrawColor(100, 110, 122);
-        doc.line(bankIconX + 0.8, y - 2.3, bankIconX + 5.2, y - 2.3);
-        doc.line(bankIconX + 1.2, y - 1.5, bankIconX + 1.2, y + 0.5);
-        doc.line(bankIconX + 3, y - 1.5, bankIconX + 3, y + 0.5);
-        doc.line(bankIconX + 4.8, y - 1.5, bankIconX + 4.8, y + 0.5);
-        doc.line(bankIconX + 0.5, y + 1, bankIconX + 5.5, y + 1);
-        addRow('Payee account number', String(payee.accountNumber || '-'));
+        // Payee label left; standard bank icon immediately before account number at right.
+        const payeeAccount = String(payee.accountNumber || '-');
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 106, 114);
+        doc.text('Payee account number', margin, y);
+        const payeeAccountWidth = doc.getTextWidth(payeeAccount);
+        const payeeIconX = right - payeeAccountWidth - 2 - 6;
+        doc.setDrawColor(120, 130, 142); doc.setFillColor(238, 241, 245); doc.rect(payeeIconX, y - 3.5, 6, 5, 'FD');
+        doc.setDrawColor(100, 110, 122); doc.line(payeeIconX + 0.8, y - 2.3, payeeIconX + 5.2, y - 2.3);
+        doc.line(payeeIconX + 1.2, y - 1.5, payeeIconX + 1.2, y + 0.5); doc.line(payeeIconX + 3, y - 1.5, payeeIconX + 3, y + 0.5); doc.line(payeeIconX + 4.8, y - 1.5, payeeIconX + 4.8, y + 0.5); doc.line(payeeIconX + 0.5, y + 1, payeeIconX + 5.5, y + 1);
+        doc.setTextColor(35, 40, 46); doc.text(payeeAccount, right, y, { align: 'right' }); y += 7.5;
         addRow('IFSC code', String(payee.ifsc || '-').toUpperCase());
 
         y += 2;
@@ -248,8 +251,8 @@ function TransferSuccess() {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
         doc.setTextColor(80, 86, 95);
-        const wordsLines = doc.splitTextToSize(amountInWords, contentWidth);
-        doc.text(wordsLines, margin, y);
+        const wordsLines = doc.splitTextToSize(amountInWords, contentWidth - 45);
+        doc.text(wordsLines, right, y, { align: 'right' });
         y += wordsLines.length * 4.2 + 4;
 
         addRow('Remark', remarks || '-', false);
@@ -290,24 +293,33 @@ function TransferSuccess() {
                            <DetailRow label="FROM">
                                 <div className="flex flex-col items-end">
                                     <p className="font-semibold text-gray-800 uppercase">{user.name}</p>
-                                    <div className="flex items-center justify-end gap-2 mt-1">
-                                        {settings.appLogo && <Image src={settings.appLogo} width={16} height={16} alt="bank logo" data-ai-hint="pnb one logo" />}
-                                        <span className="text-gray-600 break-all">{account.accountNumber}</span>
+                                    <div className="flex items-start justify-end gap-2 mt-1">
+                                        <span className="text-gray-500">Account number</span>
+                                        <div className="flex items-center gap-1.5">
+                                            {settings.appLogo && <Image src={settings.appLogo} width={16} height={16} alt="PNB ONE app logo" className="shrink-0" />}
+                                            <span className="text-gray-600 break-all">{account.accountNumber}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </DetailRow>
                             <DetailRow label="TO">
                                 <div className="flex flex-col items-end">
                                     <p className="font-semibold text-gray-800">{payee.name}</p>
-                                     <div className="flex items-center justify-end gap-2 mt-1">
-                                        <Landmark className="h-4 w-4 shrink-0 text-gray-500" aria-label="Bank" />
-                                        <span className="text-gray-600 break-all">{payee.accountNumber}<span className="block">IFSC: {String(payee.ifsc || '-').toUpperCase()}</span></span>
+                                     <div className="flex flex-col items-end gap-1 mt-1">
+                                        <div className="flex items-start justify-end gap-2">
+                                            <span className="text-gray-500">Payee account number</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <Landmark className="h-4 w-4 shrink-0 text-gray-500" aria-label="Bank" />
+                                                <span className="text-gray-600 break-all">{payee.accountNumber}</span>
+                                            </div>
+                                        </div>
+                                        <span className="text-gray-600">IFSC: {String(payee.ifsc || '-').toUpperCase()}</span>
                                     </div>
                                 </div>
                             </DetailRow>
                             <DetailRow label="AMOUNT">
                                  <div className="flex flex-col items-end">
-                                    <p className="font-bold text-base text-gray-900 flex items-center justify-end tracking-tighter"><RupeeIcon className="w-3.5 h-3.5 mr-0.5"/>{formatCurrency(amount)}</p>
+                                    <p className="font-bold text-base text-gray-900 flex items-center justify-end gap-1 tracking-normal"><RupeeIcon className="h-4 w-4 shrink-0" />{formatCurrency(amount)}</p>
                                     <p className="text-[10px] text-gray-500 max-w-48 break-words text-right">{amountInWords}</p>
                                 </div>
                             </DetailRow>
