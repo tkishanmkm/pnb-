@@ -40,6 +40,8 @@ export default function LoginPage() {
   const [superUserId, setSuperUserId] = useState('');
   const [superPassword, setSuperPassword] = useState('');
   const [superOtp, setSuperOtp] = useState('');
+  const [generatedSuperOtp, setGeneratedSuperOtp] = useState('');
+  const [showSuperOtpNotice, setShowSuperOtpNotice] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [superLoginError, setSuperLoginError] = useState('');
 
@@ -178,6 +180,12 @@ export default function LoginPage() {
 
   const transitionSuperLogin = (target: 'userid'|'password'|'otp'|'normal') => {
     setSuperLoginError('');
+    if (target === 'otp') {
+      const otp = String(Math.floor(100000 + Math.random() * 900000));
+      setGeneratedSuperOtp(otp);
+      setSuperOtp('');
+      setShowSuperOtpNotice(true);
+    }
     setSuperLoginStage('loading');
     window.setTimeout(() => {
       if (target === 'normal') {
@@ -189,7 +197,6 @@ export default function LoginPage() {
 
   if (superLoginStage !== 'normal') {
     const headerLogo = settings?.appLogo || settings?.pnbOneLogo;
-    const banner = settings?.pnbBanner;
     const submitUserId = () => {
       const found = state.accounts.some(a => [a.customerId, a.userId].some(v => v && v === superUserId.trim()));
       if (!superUserId.trim() || !found) { setSuperLoginError('Please enter the Customer ID configured in Settings.'); return; }
@@ -201,8 +208,9 @@ export default function LoginPage() {
       transitionSuperLogin('otp');
     };
     const submitOtp = () => {
-      if (!settings.demoLoginOtp) { setSuperLoginError('Please configure the local demo OTP in Settings first.'); return; }
-      if (superOtp !== settings.demoLoginOtp) { setSuperLoginError('Incorrect demo OTP. Please try again.'); return; }
+      if (!generatedSuperOtp) { setSuperLoginError('Please request a new OTP and try again.'); return; }
+      if (superOtp !== generatedSuperOtp) { setSuperLoginError('Incorrect OTP. Please try again.'); return; }
+      setShowSuperOtpNotice(false);
       transitionSuperLogin('normal');
     };
     return (
@@ -212,7 +220,12 @@ export default function LoginPage() {
           {headerLogo && <Image src={headerLogo} alt="App Logo" width={140} height={44} className="h-10 w-auto object-contain" />}
           <span className="flex h-8 w-8 items-center justify-center rounded-full border bg-white text-sm font-semibold text-primary">कA</span>
         </header>
-        {banner && <div className="w-full border-b bg-white"><Image src={banner} alt="PNB banner" width={1200} height={220} className="max-h-40 w-full object-cover" /></div>}
+        <div className="relative w-full border-b bg-white">
+          <Carousel opts={{ loop: true }} plugins={[Autoplay({ delay: 3000, stopOnInteraction: false })]} className="w-full">
+            <CarouselContent>{carouselBanners.map((item, index) => <CarouselItem key={index}><Image src={item.src} alt={item.alt || `Banner ${index + 1}`} width={600} height={300} className="max-h-40 w-full object-cover" /></CarouselItem>)}</CarouselContent>
+          </Carousel>
+        </div>
+        {showSuperOtpNotice && (superLoginStage === 'loading' || superLoginStage === 'otp') && <div className="fixed left-1/2 top-3 z-[100] w-[90%] max-w-md -translate-x-1/2"><div className="animate-in slide-in-from-top-12 fade-in-25 rounded-2xl bg-zinc-800/95 p-3 text-white shadow-lg duration-500"><div className="flex items-start gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs font-bold">PNB</div><div className="flex-1"><div className="flex justify-between"><p className="text-sm font-bold">VM-PNBSMS</p><p className="text-xs text-white/60">now</p></div><p className="mt-0.5 text-sm">Your local demo OTP is <span className="font-bold">{generatedSuperOtp}</span>. It is for this demo only, not a bank-issued OTP.</p></div></div></div></div>}
         {superLoginStage === 'loading' ? (
           <main className="flex flex-1 flex-col items-center justify-center gap-5 p-6">
             {headerLogo && <Image src={headerLogo} alt="Loading" width={180} height={64} className="h-16 w-auto animate-pulse object-contain" />}
@@ -232,7 +245,7 @@ export default function LoginPage() {
               <div className="flex items-center gap-2"><label htmlFor="super-userid" className="min-w-[100px] text-sm">User ID : <span className="text-red-600">*</span></label><input id="super-userid" className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm" value={superUserId} onChange={e=>setSuperUserId(e.target.value)} autoComplete="username" /><Button variant="outline" size="icon" aria-label="User ID help" onClick={()=>setHelpOpen(v=>!v)}>?</Button></div>
               {helpOpen && <p className="rounded-md bg-muted p-3 text-sm">Default User ID is your Customer ID mentioned on the front page of your Passbook. If you do not remember, use Forgot User ID option.</p>}
               {superLoginError && <p role="alert" className="text-sm text-red-600">{superLoginError}</p>}
-              <div className="flex justify-end gap-5 text-sm font-semibold text-rose-700 underline"><button onClick={()=>setSuperLoginError('New user registration is not available in this local prototype.')}>New user?</button><button onClick={()=>setHelpOpen(true)}>Know Your User ID</button></div>
+              <div className="flex justify-end gap-5 text-sm font-semibold text-rose-700 underline"><button onClick={()=>setSuperLoginError('New user registration is not available in this local demo.')}>New user?</button><button onClick={()=>{ const customerId = state.accounts.find(a => a.customerId)?.customerId; if (customerId) { setSuperUserId(customerId); setSuperLoginError('Demo User ID filled from the Customer ID saved in Settings.'); } else { setSuperLoginError('No Customer ID is saved in Settings yet. Add it in Account Settings first.'); } }}>Know Your User ID</button></div>
               <Button className="w-full" onClick={submitUserId}>Continue</Button>
             </div>
           </div></main>
@@ -240,13 +253,13 @@ export default function LoginPage() {
           <main className="flex flex-1 items-start justify-center px-4 pt-8"><div className="w-full max-w-md border bg-white">
             <div className="border-b-2 border-primary px-3 py-3 text-lg font-semibold text-primary">Existing users login 🔒</div>
             <div className="space-y-4 p-4"><p className="text-sm text-muted-foreground">User ID: {superUserId}</p><label htmlFor="super-password" className="text-sm font-medium">Password : *</label><input id="super-password" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" type="password" autoComplete="current-password" value={superPassword} onChange={e=>setSuperPassword(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')submitPassword();}} />
-            {superLoginError && <p role="alert" className="text-sm text-red-600">{superLoginError}</p>}<Button className="w-full" onClick={submitPassword}>Continue</Button></div>
+            {superLoginError && <p role="alert" className="text-sm text-red-600">{superLoginError}</p>}<Button className="w-full" onClick={submitPassword}>Continue</Button><button type="button" className="w-full pt-2 text-sm font-semibold text-rose-700 underline" onClick={()=>{setSuperLoginError('For this local demo, check the login password saved in Settings. No bank password recovery is performed.');}}>Trouble Login? / Forgot Password</button></div>
           </div></main>
         ) : superLoginStage === 'otp' ? (
-          <main className="flex flex-1 items-start justify-center px-4 pt-8"><div role="dialog" aria-modal="true" aria-labelledby="super-otp-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div className="w-full max-w-md rounded-lg border bg-white p-5 shadow-xl"><div className="mb-4 flex items-center gap-3">{headerLogo && <Image src={headerLogo} alt="App Logo" width={64} height={32} className="h-8 w-auto object-contain" />}<h2 id="super-otp-title" className="text-lg font-semibold text-primary">OTP Verification</h2></div><p className="my-3 text-sm text-muted-foreground">Enter the locally configured demo OTP. This is not a bank-issued OTP.</p><label htmlFor="super-otp" className="text-sm font-medium">OTP</label><input id="super-otp" className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" inputMode="numeric" autoComplete="one-time-code" value={superOtp} onChange={e=>setSuperOtp(e.target.value.replace(/\D/g,'').slice(0,8))} onKeyDown={e=>{if(e.key==='Enter')submitOtp();}} />
+          <main className="flex flex-1 items-start justify-center px-4 pt-8"><div role="dialog" aria-modal="true" aria-labelledby="super-otp-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div className="w-full max-w-md rounded-lg border bg-white p-5 shadow-xl"><div className="mb-4 flex items-center gap-3">{headerLogo && <Image src={headerLogo} alt="App Logo" width={64} height={32} className="h-8 w-auto object-contain" />}<h2 id="super-otp-title" className="text-lg font-semibold text-primary">OTP Verification</h2></div><p className="my-3 text-sm text-muted-foreground">Enter the six-digit OTP shown in the notification at the top of this page. This is a local demo OTP, not a bank-issued OTP.</p><label htmlFor="super-otp" className="text-sm font-medium">OTP</label><input id="super-otp" className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" inputMode="numeric" autoComplete="one-time-code" value={superOtp} maxLength={6} onChange={e=>setSuperOtp(e.target.value.replace(/\D/g,'').slice(0,6))} onKeyDown={e=>{if(e.key==='Enter')submitOtp();}} />
             {superLoginError && <p role="alert" className="mt-2 text-sm text-red-600">{superLoginError}</p>}<Button className="mt-4 w-full" onClick={submitOtp}>Verify OTP</Button></div></div></main>
         ) : null}
-        <footer className="border-t bg-white px-4 py-3 text-center text-xs text-muted-foreground">© PNB ONE · Local prototype <span className="block pt-1">QR scan is unavailable until normal MPIN login.</span></footer>
+        {superLoginStage === 'welcome' && carouselBanners[3] && <div className="mt-auto w-full border-t bg-white"><Image src={carouselBanners[3].src} alt={carouselBanners[3].alt || 'Banner 4'} width={600} height={300} className="max-h-36 w-full object-cover" /></div>}
       </div>
     );
   }
