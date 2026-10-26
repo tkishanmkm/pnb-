@@ -57,7 +57,7 @@ function TransferSuccess() {
             setDisplayRrn(generatedRrn);
             
             const amount = parseFloat(amountStr);
-            const impsCharge = 11.8;
+            const impsCharge = amount <= 1000 ? 0 : amount <= 100000 ? 5.9 : 11.8;
             const totalAmountDebited = amount + impsCharge;
 
             const currentAccount = state.accounts[0];
