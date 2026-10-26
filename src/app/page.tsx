@@ -36,7 +36,13 @@ export default function LoginPage() {
   const router = useRouter();
   const [carouselApi, setCarouselApi] = useState<CarouselApi | undefined>(undefined);
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
-  const [showSuperLogoutWelcome, setShowSuperLogoutWelcome] = useState(false);
+  const [superLoginStage, setSuperLoginStage] = useState<'checking'|'normal'|'welcome'|'loading'|'userid'|'password'|'otp'>('checking');
+  const [loadingTarget, setLoadingTarget] = useState<'userid'|'password'|'otp'|'normal'>('userid');
+  const [superUserId, setSuperUserId] = useState('');
+  const [superPassword, setSuperPassword] = useState('');
+  const [superOtp, setSuperOtp] = useState('');
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [superLoginError, setSuperLoginError] = useState('');
 
   const pinInputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -53,7 +59,7 @@ export default function LoginPage() {
   }, [carouselApi]);
 
   useEffect(() => {
-    try { setShowSuperLogoutWelcome(window.localStorage.getItem('pnb-superlogout-pending') === '1'); } catch { setShowSuperLogoutWelcome(false); }
+    try { setSuperLoginStage(window.localStorage.getItem('pnb-superlogout-pending') === '1' ? 'welcome' : 'normal'); } catch { setSuperLoginStage('normal'); }
   }, []);
 
   useEffect(() => {
@@ -169,20 +175,83 @@ export default function LoginPage() {
   const { user, settings } = state;
   const { carouselBanners } = settings;
 
-  if (showSuperLogoutWelcome) {
+  if (superLoginStage === 'checking') return <SplashScreen />;
+
+  const transitionSuperLogin = (target: 'userid'|'password'|'otp'|'normal') => {
+    setLoadingTarget(target);
+    setSuperLoginError('');
+    setSuperLoginStage('loading');
+    window.setTimeout(() => {
+      if (target === 'normal') {
+        try { window.localStorage.removeItem('pnb-superlogout-pending'); window.localStorage.setItem('pnb-superlogin-complete','1'); } catch {}
+      }
+      setSuperLoginStage(target);
+    }, 2000);
+  };
+
+  if (superLoginStage !== 'normal') {
+    const headerLogo = settings?.appLogo || settings?.pnbOneLogo;
+    const banner = settings?.pnbBanner;
+    const submitUserId = () => {
+      const found = state.accounts.some(a => [a.customerId, a.userId].some(v => v && v === superUserId.trim()));
+      if (!superUserId.trim() || !found) { setSuperLoginError('Please enter the Customer ID configured in Settings.'); return; }
+      transitionSuperLogin('password');
+    };
+    const submitPassword = () => {
+      if (!settings.loginPassword) { setSuperLoginError('Please configure the local demo password in Settings first.'); return; }
+      if (superPassword !== settings.loginPassword) { setSuperLoginError('Incorrect password. Please try again.'); return; }
+      transitionSuperLogin('otp');
+    };
+    const submitOtp = () => {
+      if (!settings.demoLoginOtp) { setSuperLoginError('Please configure the local demo OTP in Settings first.'); return; }
+      if (superOtp !== settings.demoLoginOtp) { setSuperLoginError('Incorrect demo OTP. Please try again.'); return; }
+      transitionSuperLogin('normal');
+    };
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm rounded-2xl border bg-white p-6 shadow-lg text-center space-y-5">
-          {settings?.appLogo && <Image src={settings.appLogo} alt="App logo" width={150} height={50} className="mx-auto h-12 w-auto object-contain" />}
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary"><ShieldCheck className="h-7 w-7" /></div>
-          <h1 className="text-2xl font-semibold text-gray-900">Welcome to PNB ONE</h1>
-          <p className="text-sm text-gray-600">Local prototype sign-in. Continue with your configured MPIN. This screen does not verify credentials with a bank.</p>
-          <Button className="w-full" onClick={() => { try { window.localStorage.removeItem('pnb-superlogout-pending'); } catch {} setShowSuperLogoutWelcome(false); }}>Continue to MPIN login</Button>
-        </div>
+      <div className="flex min-h-screen flex-col bg-gray-50">
+        <header className="flex h-16 items-center justify-between border-b bg-white px-4">
+          <span className="text-xs font-semibold text-primary">App Version: 5.16</span>
+          {headerLogo && <Image src={headerLogo} alt="App Logo" width={140} height={44} className="h-10 w-auto object-contain" />}
+          <span className="flex h-8 w-8 items-center justify-center rounded-full border bg-white text-sm font-semibold text-primary">कA</span>
+        </header>
+        {banner && <div className="w-full border-b bg-white"><Image src={banner} alt="PNB banner" width={1200} height={220} className="max-h-40 w-full object-cover" /></div>}
+        {superLoginStage === 'loading' ? (
+          <main className="flex flex-1 flex-col items-center justify-center gap-5 p-6">
+            {headerLogo && <Image src={headerLogo} alt="Loading" width={180} height={64} className="h-16 w-auto animate-pulse object-contain" />}
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </main>
+        ) : superLoginStage === 'welcome' ? (
+          <main className="flex flex-1 flex-col items-center justify-center p-6"><div className="w-full max-w-sm space-y-6 rounded-lg border bg-white p-6 text-center shadow-sm">
+            {headerLogo && <Image src={headerLogo} alt="App Logo" width={190} height={68} className="mx-auto h-16 w-auto object-contain" />}
+            <ShieldCheck className="mx-auto h-10 w-10 text-primary" /><h1 className="text-2xl font-semibold text-primary">Welcome to PNB ONE</h1>
+            <p className="text-sm text-muted-foreground">Local prototype sign-in. This does not authenticate with bank systems.</p>
+            <Button className="w-full" onClick={() => transitionSuperLogin('userid')}>Next</Button>
+          </div></main>
+        ) : superLoginStage === 'userid' ? (
+          <main className="flex flex-1 justify-center px-4 pt-8"><div className="w-full max-w-md">
+            <div className="border-b-2 border-primary bg-white px-3 py-3 text-lg font-semibold text-primary">Existing users login 🔒</div>
+            <div className="space-y-5 border bg-white p-4">
+              <div className="flex items-center gap-2"><label htmlFor="super-userid" className="min-w-[100px] text-sm">User ID : <span className="text-red-600">*</span></label><input id="super-userid" className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm" value={superUserId} onChange={e=>setSuperUserId(e.target.value)} autoComplete="username" /><Button variant="outline" size="icon" aria-label="User ID help" onClick={()=>setHelpOpen(v=>!v)}>?</Button></div>
+              {helpOpen && <p className="rounded-md bg-muted p-3 text-sm">Default User ID is your Customer ID mentioned on the front page of your Passbook. If you do not remember, use Forgot User ID option.</p>}
+              {superLoginError && <p role="alert" className="text-sm text-red-600">{superLoginError}</p>}
+              <div className="flex justify-end gap-5 text-sm font-semibold text-rose-700 underline"><button onClick={()=>setSuperLoginError('New user registration is not available in this local prototype.')}>New user?</button><button onClick={()=>setHelpOpen(true)}>Know Your User ID</button></div>
+              <Button className="w-full" onClick={submitUserId}>Continue</Button>
+            </div>
+          </div></main>
+        ) : superLoginStage === 'password' ? (
+          <main className="flex flex-1 items-start justify-center px-4 pt-8"><div className="w-full max-w-md border bg-white">
+            <div className="border-b-2 border-primary px-3 py-3 text-lg font-semibold text-primary">Existing users login 🔒</div>
+            <div className="space-y-4 p-4"><p className="text-sm text-muted-foreground">User ID: {superUserId}</p><label htmlFor="super-password" className="text-sm font-medium">Password : *</label><input id="super-password" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" type="password" autoComplete="current-password" value={superPassword} onChange={e=>setSuperPassword(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')submitPassword();}} />
+            {superLoginError && <p role="alert" className="text-sm text-red-600">{superLoginError}</p>}<Button className="w-full" onClick={submitPassword}>Continue</Button></div>
+          </div></main>
+        ) : superLoginStage === 'otp' ? (
+          <main className="flex flex-1 items-start justify-center px-4 pt-8"><div className="w-full max-w-md border bg-white p-5"><h2 className="text-lg font-semibold text-primary">OTP Verification</h2><p className="my-3 text-sm text-muted-foreground">Enter the locally configured demo OTP. This is not a bank-issued OTP.</p><label htmlFor="super-otp" className="text-sm font-medium">OTP</label><input id="super-otp" className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" inputMode="numeric" autoComplete="one-time-code" value={superOtp} onChange={e=>setSuperOtp(e.target.value.replace(/\D/g,'').slice(0,8))} onKeyDown={e=>{if(e.key==='Enter')submitOtp();}} />
+            {superLoginError && <p role="alert" className="mt-2 text-sm text-red-600">{superLoginError}</p>}<Button className="mt-4 w-full" onClick={submitOtp}>Verify OTP</Button></div></main>
+        ) : null}
+        <footer className="border-t bg-white px-4 py-3 text-center text-xs text-muted-foreground">© PNB ONE · Local prototype <span className="block pt-1">QR scan is unavailable until normal MPIN login.</span></footer>
       </div>
     );
   }
-
   return (
     <div className="flex flex-col h-screen bg-gray-50">
         <header className="flex items-center justify-between p-3 bg-gray-50 h-16">
