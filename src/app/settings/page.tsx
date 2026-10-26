@@ -494,14 +494,17 @@ const EnglishDemoChatBuilder = () => {
             balance: [account ? `The balance currently stored in this local demo is ${money(account.balance)}.` : 'No account balance is configured in this demo.','Please treat this as app-stored data only; it is not a live bank balance.'],
             investigation: ['I can help you organise the details for a transaction enquiry.','Please identify the transaction date and amount from your records. Do not post your full account number, date of birth, OTP, MPIN or password here.','I have recorded the information in this demo conversation. Contact your bank through its official channel for actual verification.']
         };
+        const chosenScript = scripts[kind] || scripts.general;
+        const duration = (chosenScript.length + 3) * 360000;
+        const start = now - duration;
         const messages: ChatMessage[] = [
-            {id:crypto.randomUUID(),sender:'system',content:'DEMO ONLY — simulated conversation; not a real bank agent or bank confirmation.',timestamp:new Date(now).toISOString()},
-            {id:crypto.randomUUID(),sender:'system',content:'Please wait while you are transferred to an agent...',timestamp:new Date(now+1000).toISOString()},
-            {id:crypto.randomUUID(),sender:'system',content:`Demo agent ${agent} connected.`,timestamp:new Date(now+120000).toISOString()},
-            {id:crypto.randomUUID(),sender:'agent',content:`${salutation}! My name is ${agent}. How may I help you today?`,timestamp:new Date(now+121000).toISOString()},
+            {id:crypto.randomUUID(),sender:'system',content:'DEMO ONLY — simulated conversation; not a real bank agent or bank confirmation.',timestamp:new Date(start).toISOString()},
+            {id:crypto.randomUUID(),sender:'system',content:'Please wait while you are transferred to an agent...',timestamp:new Date(start+1000).toISOString()},
+            {id:crypto.randomUUID(),sender:'system',content:`Demo agent ${agent} connected.`,timestamp:new Date(start+120000).toISOString()},
+            {id:crypto.randomUUID(),sender:'agent',content:`${salutation}! My name is ${agent}. How may I help you today?`,timestamp:new Date(start+121000).toISOString()},
         ];
-        (scripts[kind] || scripts.general).forEach((line,i)=>messages.push({id:crypto.randomUUID(),sender:'agent',content:line,timestamp:new Date(now+(kind==='general'?240000:360000)+i*360000).toISOString()}));
-        messages.push({id:crypto.randomUUID(),sender:'system',content:'Demo conversation closed.',timestamp:new Date(now+((scripts[kind]||scripts.general).length+2)*360000).toISOString()});
+        chosenScript.forEach((line,i)=>messages.push({id:crypto.randomUUID(),sender:'agent',content:line,timestamp:new Date(start+240000+i*360000).toISOString()}));
+        messages.push({id:crypto.randomUUID(),sender:'system',content:'Demo conversation closed.',timestamp:new Date(now).toISOString()});
         dispatch({type:'UPDATE_CHAT_HISTORY',payload:[...state.chatHistory,...messages]});
         toast({title:'Demo chat added',description:'English-only simulated agent messages were saved to local chat history.'});
     };
