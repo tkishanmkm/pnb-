@@ -78,6 +78,27 @@ const AccountSettings = () => {
                 <Label htmlFor="mobileNumber">Mobile Number</Label>
                 <Input id="mobileNumber" value={user.mobileNumber || ''} onChange={e => setUser({...user, mobileNumber: e.target.value})} />
             </div>
+            <div className="space-y-2">
+                <Label htmlFor="mobileLast4">Registered mobile last 4 digits (chat demo)</Label>
+                <Input id="mobileLast4" inputMode="numeric" maxLength={4} value={settings.registeredMobileLast4 || (user.mobileNumber || '').slice(-4)} onChange={e => setSettings({...settings, registeredMobileLast4: e.target.value.replace(/\D/g, '').slice(0,4)})} placeholder="Enter last four digits" />
+            </div>
+            <h3 className="font-semibold pt-4">Local Prototype Sign-in</h3>
+            <p className="text-xs text-muted-foreground">These settings are for the local app demo only. They do not authenticate with Punjab National Bank.</p>
+            <div className="space-y-2">
+                <Label htmlFor="localLoginPassword">Super Logout demo password</Label>
+                <Input id="localLoginPassword" type="password" autoComplete="new-password" value={settings.loginPassword || ''} onChange={e => setSettings({...settings, loginPassword: e.target.value})} placeholder="Set a local demo password" />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="demoLoginOtp">Super Logout demo OTP</Label>
+                <Input id="demoLoginOtp" inputMode="numeric" maxLength={8} value={settings.demoLoginOtp || ''} onChange={e => setSettings({...settings, demoLoginOtp: e.target.value.replace(/\D/g, '').slice(0,8)})} placeholder="Set demo OTP" />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="agentEnglishStyle">Default English agent style</Label>
+                <Select value={settings.agentEnglishStyle || '1'} onValueChange={(value: '1'|'2'|'3') => setSettings({...settings, agentEnglishStyle: value})}>
+                    <SelectTrigger id="agentEnglishStyle"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="1">Type 1 - Simple and polite</SelectItem><SelectItem value="2">Type 2 - Professional</SelectItem><SelectItem value="3">Type 3 - Detailed professional</SelectItem></SelectContent>
+                </Select>
+            </div>
 
             <h3 className="font-semibold pt-4">Security PINs</h3>
             <div className="grid grid-cols-2 gap-4">
@@ -431,9 +452,47 @@ const ChatHistorySettings = () => {
         dispatch({ type: 'UPDATE_CHAT_HISTORY', payload: history });
         toast({ title: "Success", description: "Chat history updated." });
     };
+    const fileRef = useRef<HTMLInputElement>(null);
+    const exportHistory = () => {
+        const blob = new Blob([JSON.stringify(state.chatHistory, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url; link.download = 'pnb-one-chat-history.json'; link.click();
+        URL.revokeObjectURL(url);
+    };
+    const importHistory = (mode: 'replace' | 'save') => {
+        const file = fileRef.current?.files?.[0];
+        if (!file) { toast({title:'Choose a JSON file first', variant:'destructive'}); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const parsed = JSON.parse(String(reader.result));
+                const raw = Array.isArray(parsed) ? parsed : parsed?.chatHistory;
+                if (!Array.isArray(raw) || !raw.every((m:any) => m && typeof m.id === 'string' && ['user','agent','system'].includes(m.sender) && typeof m.content === 'string' && typeof m.timestamp === 'string' && !Number.isNaN(Date.parse(m.timestamp)))) throw new Error('Invalid chat history');
+                const incoming: ChatMessage[] = raw.map((m:any) => ({id:m.id, sender:m.sender, content:m.content, timestamp:new Date(m.timestamp).toISOString(), ...(typeof m.avatarUrl === 'string' ? {avatarUrl:m.avatarUrl} : {})}));
+                let next: ChatMessage[];
+                if (mode === 'replace') next = incoming;
+                else {
+                    const seen = new Set(state.chatHistory.map(m => m.id));
+                    next = [...state.chatHistory, ...incoming.filter(m => !seen.has(m.id))];
+                }
+                dispatch({type:'UPDATE_CHAT_HISTORY', payload:next});
+                setHistory(next);
+                toast({title:'Chat history imported',description: mode === 'replace' ? 'Existing chat history was replaced.' : 'New messages were appended; duplicate IDs were skipped.'});
+                if(fileRef.current) fileRef.current.value = '';
+            } catch { toast({title:'Import failed',description:'Choose a valid chat-history JSON file. Existing data was not changed.',variant:'destructive'}); }
+        };
+        reader.readAsText(file);
+    };
 
     return (
         <CardContent className="space-y-4">
+            <div className="space-y-2 rounded-md border p-3">
+                <Label>Import or export chat history only</Label>
+                <Input ref={fileRef} type="file" accept="application/json,.json" />
+                <div className="grid grid-cols-2 gap-2"><Button variant="outline" onClick={() => importHistory('replace')}>Replace Chat History</Button><Button variant="outline" onClick={() => importHistory('save')}>Save / Append Chat</Button></div>
+                <Button onClick={exportHistory} className="w-full">Export Chat History JSON</Button>
+            </div>
             <Button onClick={handleAdd} className="w-full">Add Message</Button>
             <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                 {history.map(msg => (
@@ -477,45 +536,80 @@ const EnglishDemoChatBuilder = () => {
     const { state, dispatch } = useAppContext();
     const { toast } = useToast();
     const [agent, setAgent] = useState('Neha');
-    const [kind, setKind] = useState('general');
+    const [kind, setKind] = useState('last');
+    const [style, setStyle] = useState<'1'|'2'|'3'>(state.settings.agentEnglishStyle || '1');
+    const [selectedTransactionId, setSelectedTransactionId] = useState('');
     const agents = ['Neha','Suresh','Mahesh','Pinky','Priya','Rahul','Amit','Anjali','Pooja','Rohit','Sneha','Vikram','Ankit','Kavita','Deepak','Nisha','Arjun','Meera','Sanjay','Riya'];
     const generate = () => {
         const now = Date.now();
         const account = state.accounts[0];
-        const latest = [...state.transactions].sort((a,b) => new Date(b.date).getTime()-new Date(a.date).getTime())[0];
-        const money = (n:number) => (state.settings.currencySymbol || 'INR ') + Math.abs(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+        const txs = [...state.transactions].sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime());
+        const latest = txs[0];
+        const tx = txs.find(t=>t.id===selectedTransactionId) || latest;
+        const money = (n:number) => (account?.currencySymbol || state.settings.currencySymbol || 'INR ') + Math.abs(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
         const hour = Number(new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',hour:'numeric',hour12:false}).format(new Date()));
-        const salutation = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : hour < 21 ? 'Good evening' : 'Hello';
-        const scripts: Record<string,string[]> = {
-            general: ['Thank you for contacting support. I will be happy to guide you.','Could you please describe the issue you are experiencing?','For your safety, never share your MPIN, TPIN, password or OTP in chat.'],
-            last: [latest ? 'Latest saved demo transaction: '+latest.description+', '+money(latest.amount)+', dated '+new Date(latest.date).toLocaleDateString('en-IN')+'.' : 'No transaction is available in the saved demo data.','Please compare these stored details with your own records. This demo cannot verify bank-side payment status.'],
-            selected: [latest ? 'The latest saved demo transaction is '+latest.description+' for '+money(latest.amount)+'.' : 'No saved transaction is available to review.','This is a preview of locally stored app data, not a bank confirmation.'],
-            balance: [account ? 'The balance currently stored in this local demo is '+money(account.balance)+'.' : 'No account balance is configured in this demo.','This is app-stored data only, not a live bank balance.'],
-            investigation: ['I can help you organise the details for a transaction enquiry.','Please identify the transaction date and amount from your records. Do not share your full account number, date of birth, OTP, MPIN or password here.','For actual verification, contact your bank through its official channel.']
+        const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : hour < 21 ? 'Good evening' : 'Hello';
+        const fullName = account?.accountHolder || state.user.name || 'account holder';
+        const surname = fullName.trim().split(/\s+/).slice(-1)[0] || fullName;
+        const accountNo = account?.accountNumber || 'not configured in Settings';
+        const last4 = (state.settings.registeredMobileLast4 || state.user.mobileNumber?.slice(-4) || '').trim();
+        const userName = fullName;
+        const askIdentity = style==='1'
+          ? 'Thank you for contacting Punjab National Bank. I would be happy to help. Could you please provide your full name, account number, and the last four digits of your registered mobile number?'
+          : style==='2'
+          ? 'Thank you for contacting Punjab National Bank. I will be pleased to assist with your transaction enquiry. To continue, please provide your full name, account number, and the last four digits of your registered mobile number.'
+          : 'Thank you for contacting Punjab National Bank. I will be glad to guide you through this enquiry. Before proceeding, please provide your full name, account number, and the last four digits of your registered mobile number. Please do not share your PIN, password, or OTP.';
+        const verify = style==='1' ? 'Thank you, '+surname+'. Please wait while I review the details you provided.'
+          : style==='2' ? 'Thank you, '+fullName+'. Please allow me a moment to review the details you provided.'
+          : 'Thank you, '+fullName+'. I appreciate your patience. I will now review the details entered in this local demo.';
+        const askTx = style==='1' ? 'Thank you for waiting. Could you tell me the transaction date and amount you want to check?'
+          : style==='2' ? 'Thank you for waiting. Could you please confirm the transaction date and amount you are enquiring about?'
+          : 'Thank you for your patience. To help organise your enquiry, please confirm the transaction date and amount you would like to review.';
+        const templates:Record<string,string[]> = {
+          general:['Thank you for contacting support. I will be happy to help you.','Could you briefly describe the issue you are experiencing?','For your safety, please do not share your MPIN, TPIN, password or OTP in chat.'],
+          last:[askIdentity,verify,'Thank you for waiting. '+(tx ? 'The selected saved demo transaction is '+tx.description+', '+money(tx.amount)+', dated '+new Date(tx.date).toLocaleDateString('en-IN')+'.' : 'No transaction is available in the saved app data.')+' This is locally stored data and is not a bank-side verification.','Could you please confirm the transaction date and amount from your records?'],
+          selected:[askIdentity,verify,askTx,tx ? 'The selected saved demo transaction is '+tx.description+' for '+money(tx.amount)+'. This is a local preview, not a bank confirmation.' : 'No saved transaction is available to review.'],
+          balance:[askIdentity,verify,account ? 'The balance currently stored in this local demo is '+money(account.balance)+'. This is not a live bank balance.' : 'No account balance is configured in this demo.'],
+          investigation:[askIdentity,verify,'Please share only the transaction date and amount needed for this demo enquiry. Do not share your full account number, date of birth, PIN, password or OTP.','For actual verification, contact the bank through an official channel.']
         };
-        const chosen = scripts[kind] || scripts.general;
-        const startTime = now - (chosen.length + 3) * 360000;
-        const makeMessage = (sender: ChatMessage['sender'], content: string, offset: number): ChatMessage => ({
-            id: 'demo-chat-'+Date.now()+'-'+Math.random().toString(36).slice(2)+'-'+offset,
-            sender, content, timestamp: new Date(startTime + offset).toISOString()
-        });
-        const messages: ChatMessage[] = [
-            makeMessage('system','DEMO ONLY - simulated conversation; not a real bank agent or bank confirmation.',0),
-            makeMessage('system','Please wait while you are transferred to an agent...',1000),
-            makeMessage('system','Demo agent '+agent+' connected.',120000),
-            makeMessage('agent',salutation+'! My name is '+agent+'. How may I help you today?',121000)
-        ];
-        chosen.forEach((line,i)=>messages.push(makeMessage('agent',line,240000+i*360000)));
-        messages.push(makeMessage('system','Demo conversation closed.',(chosen.length+2)*360000));
+        const chosen = templates[kind] || templates.last;
+        const total = chosen.length + 7;
+        const startTime = now - total*180000;
+        let offset = 0;
+        const add = (sender:ChatMessage['sender'], content:string, delay:number) => {
+            offset += delay;
+            messages.push({id:'demo-'+Date.now()+'-'+Math.random().toString(36).slice(2),sender,content,timestamp:new Date(startTime+offset).toISOString()});
+        };
+        const messages:ChatMessage[] = [];
+        add('user','Hi',0);
+        add('system','Please wait while you are transferred to an agent...',1000);
+        add('system','Agent '+agent+' connected.',120000);
+        add('agent',timeGreeting+'! My name is '+agent+'. How may I help you today?',1000);
+        if(kind==='last') add('user','I want to confirm my last transaction of '+(tx?Math.abs(tx.amount).toLocaleString('en-IN'):'[amount not available]')+' INR.',60000);
+        chosen.forEach((line,i)=>{add('agent',line,style==='1'?180000:style==='2'?240000:300000); if(i===0 && kind==='last') add('user','My name is '+userName+'. My account number is '+accountNo+'. My registered mobile last four digits are '+(last4 || '[please configure in Settings]')+'.',180000); if(i===1 && kind==='last') add('user','okay',60000);});
+        if(kind==='last' && tx) {
+            add('user','Transaction date is '+new Date(tx.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'})+' and amount is '+money(tx.amount)+'. This is the transaction I want to review.',180000);
+            add('agent',style==='1'?'Thank you. Please hold on while I review the saved transaction details.':style==='2'?'Thank you for confirming. Please allow me a moment to review the saved transaction details.':'Thank you for confirming those details. Please allow me a moment to review the transaction information stored in this local demo.',180000);
+            add('user','ok',60000);
+            add('agent','The app record shows '+money(tx.amount)+' for '+tx.description+' on '+new Date(tx.date).toLocaleDateString('en-IN')+'. This is a local app record, not a live bank verification or payment confirmation.',240000);
+            add('user','thanks for confirming me',60000);
+            add('agent',style==='1'?'You are welcome. Is there anything else I can help you with today?':'You are welcome. Please let me know if I can assist you with anything else. ',180000);
+            add('user','No done all',60000);
+            add('agent','Thank you for using this demo. Have a good day.',180000);
+        }
+        add('system','Chat is closed.',60000);
         dispatch({type:'UPDATE_CHAT_HISTORY',payload:[...state.chatHistory,...messages]});
-        toast({title:'Demo chat added',description:'English-only simulated agent messages were saved to local chat history.'});
+        toast({title:'Demo chat added',description:'The selected English style applies to agent messages only. The conversation is labelled as a local demo.'});
     };
-    return <Card className="mt-4"><CardHeader><CardTitle>English Demo Chat Builder</CardTitle><CardDescription>Creates clearly labelled simulated messages from local app data. It does not contact or represent the bank.</CardDescription></CardHeader><CardContent className="space-y-3">
-        <Label>Demo agent</Label><Select value={agent} onValueChange={setAgent}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{agents.map(name=><SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select>
-        <Label>English chat type</Label><Select value={kind} onValueChange={setKind}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="general">General support</SelectItem><SelectItem value="last">Last transaction review</SelectItem><SelectItem value="selected">Transaction detail review</SelectItem><SelectItem value="balance">Saved balance review</SelectItem><SelectItem value="investigation">Transaction enquiry checklist</SelectItem></SelectContent></Select>
-        <Button className="w-full" onClick={generate}>Generate demo chat and save</Button>
+    return <Card className="mt-4"><CardHeader><CardTitle>English Agent Chat Builder</CardTitle><CardDescription>Simulated local demo only; not a real bank-agent conversation or bank verification.</CardDescription></CardHeader><CardContent className="space-y-3">
+        <Label>Agent name</Label><Select value={agent} onValueChange={setAgent}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{agents.map(name=><SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select>
+        <Label>English style (applies to all agent messages)</Label><Select value={style} onValueChange={(v:'1'|'2'|'3')=>setStyle(v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1">Type 1 - Simple and polite</SelectItem><SelectItem value="2">Type 2 - Professional</SelectItem><SelectItem value="3">Type 3 - Detailed professional</SelectItem></SelectContent></Select>
+        <Label>Chat type</Label><Select value={kind} onValueChange={setKind}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="last">Last transaction</SelectItem><SelectItem value="general">General support</SelectItem><SelectItem value="selected">Selected transaction review</SelectItem><SelectItem value="balance">Saved balance review</SelectItem><SelectItem value="investigation">Transaction enquiry checklist</SelectItem></SelectContent></Select>
+        <Label>Transaction (uses saved app data)</Label><Select value={selectedTransactionId || latestTransactionId(state.transactions)} onValueChange={setSelectedTransactionId}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{[...state.transactions].sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime()).map(t=><SelectItem key={t.id} value={t.id}>{new Date(t.date).toLocaleDateString('en-IN')} - {t.description} - {Math.abs(t.amount)}</SelectItem>)}</SelectContent></Select>
+        <Button className="w-full" onClick={generate}>Generate and save demo chat</Button>
     </CardContent></Card>;
 };
+function latestTransactionId(transactions:Transaction[]) { return [...transactions].sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime())[0]?.id || ''; }
 
 const DataManagement = () => {
     const { state, dispatch } = useAppContext();
