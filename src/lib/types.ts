@@ -144,6 +144,7 @@ export interface AppSettings {
   loginPassword?: string;
   demoLoginOtp?: string;
   registeredMobileLast4?: string;
+  registeredAadhaarLast4?: string;
   agentEnglishStyle?: '1' | '2' | '3';
 }
 
