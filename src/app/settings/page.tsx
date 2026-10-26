@@ -1209,6 +1209,16 @@ const PdfExtraction = () => {
     );
 };
 
+const SuperLogoutButton = () => {
+    const { dispatch } = useAppContext();
+    const router = useRouter();
+    return <Button variant="destructive" className="w-full" onClick={() => {
+        try { window.localStorage.setItem('pnb-superlogout-pending', '1'); } catch {}
+        dispatch({ type: 'LOGOUT_COMPLETE' });
+        router.push('/');
+    }}>Super Logout</Button>;
+};
+
 const SettingsPageContent = () => {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -1244,7 +1254,7 @@ const SettingsPageContent = () => {
                         </Card>
                         <Card className="mt-4">
                             <CardHeader><CardTitle>Super Logout</CardTitle><CardDescription>Return to the welcome screen without deleting saved app data.</CardDescription></CardHeader>
-                            <CardContent><Button variant="destructive" className="w-full" onClick={() => { try { window.localStorage.setItem('pnb-superlogout-pending', '1'); } catch {} router.push('/'); }}>Super Logout</Button></CardContent>
+                            <CardContent><SuperLogoutButton /></CardContent>
                         </Card>
                     </TabsContent>
                     <TabsContent value="data" className="mt-4">
