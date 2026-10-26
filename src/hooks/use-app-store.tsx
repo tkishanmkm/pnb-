@@ -1,7 +1,7 @@
 "use client";
 
-import React, { createContext, useReducer, useContext, useEffect, useCallback } from 'react';
-import type { AppState, Action, Transaction, AccountDetails, ChatMessage, UpdateTransactionPayload } from '@/lib/types';
+import React, { createContext, useReducer, useContext, useEffect } from 'react';
+import type { AppState, Action, Transaction } from '@/lib/types';
 import { defaultState } from '@/lib/mock-data';
 import { getStateFromIndexedDB, saveStateToIndexedDB, clearStateFromIndexedDB } from '@/lib/indexeddb';
 
