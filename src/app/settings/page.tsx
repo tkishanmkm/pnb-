@@ -581,7 +581,7 @@ const EnglishDemoChatBuilder = () => {
         };
         const chosen = templates[kind] || templates.last;
         const total = chosen.length + 7;
-        const startTime = now - total*180000;
+        const startTime = now - 86400000;
         let offset = 0;
         const add = (sender:ChatMessage['sender'], content:string, delay:number) => {
             offset += delay;
