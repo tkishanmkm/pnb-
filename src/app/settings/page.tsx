@@ -566,9 +566,9 @@ const EnglishDemoChatBuilder = () => {
           : style==='2'
           ? 'Thank you for contacting Punjab National Bank. I will be pleased to assist with your transaction enquiry. To continue, please provide your full name, account number, and '+verificationQuestion+'.'
           : 'Thank you for contacting Punjab National Bank. I will be glad to guide you through this enquiry. Before proceeding, please provide your full name, account number, and '+verificationQuestion+'. Please do not share your PIN, password, or OTP.';
-        const verify = style==='1' ? 'Thank you, '+surname+'. Please wait while I review the details you provided.'
-          : style==='2' ? 'Thank you, '+fullName+'. Please allow me a moment to review the details you provided.'
-          : 'Thank you, '+fullName+'. I appreciate your patience. I will now review the details entered in this local demo.';
+        const verify = style==='1' ? 'Thank you, Mr. '+surname+'. Please wait while I review the details you provided.'
+          : style==='2' ? 'Thank you, Mr. '+fullName+'. Please allow me a moment to review the details you provided.'
+          : 'Thank you, Mr. '+surname+'. I appreciate your patience. I will now review the details entered in this local demo.';
         const askTx = style==='1' ? 'Thank you for waiting. Could you tell me the transaction date and amount you want to check?'
           : style==='2' ? 'Thank you for waiting. Could you please confirm the transaction date and amount you are enquiring about?'
           : 'Thank you for your patience. To help organise your enquiry, please confirm the transaction date and amount you would like to review.';
@@ -591,7 +591,7 @@ const EnglishDemoChatBuilder = () => {
         add('user','Hi',0);
         add('system','Please wait while you are transferred to an agent...',1000);
         add('system','Agent '+agent+' connected.',120000);
-        add('agent',timeGreeting+'! My name is '+agent+'. How may I help you today?',1000);
+        add('agent',style==='1' ? timeGreeting+'! My name is '+agent+'. How may I help you today?' : style==='2' ? timeGreeting+'! My name is '+agent+', and I will be assisting you today. How may I help?' : timeGreeting+'! My name is '+agent+'. I will be pleased to assist you today. Please tell me how I may help with your enquiry.',1000);
         if(kind==='last') add('user','I want to confirm my last transaction of '+(tx?Math.abs(tx.amount).toLocaleString('en-IN'):'[amount not available]')+' INR.',60000);
         chosen.forEach((line,i)=>{add('agent',line,style==='1'?180000:style==='2'?240000:300000); if(i===0 && kind==='last') add('user','My name is '+userName+'. My account number is '+accountNo+'. '+verificationAnswer+'.',180000); if(i===1 && kind==='last') add('user','okay',60000);});
         if(kind==='last' && tx) {
