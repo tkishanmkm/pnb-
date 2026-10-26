@@ -37,7 +37,6 @@ export default function LoginPage() {
   const [carouselApi, setCarouselApi] = useState<CarouselApi | undefined>(undefined);
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
   const [superLoginStage, setSuperLoginStage] = useState<'checking'|'normal'|'welcome'|'loading'|'userid'|'password'|'otp'>('checking');
-  const [loadingTarget, setLoadingTarget] = useState<'userid'|'password'|'otp'|'normal'>('userid');
   const [superUserId, setSuperUserId] = useState('');
   const [superPassword, setSuperPassword] = useState('');
   const [superOtp, setSuperOtp] = useState('');
@@ -178,7 +177,6 @@ export default function LoginPage() {
   if (superLoginStage === 'checking') return <SplashScreen />;
 
   const transitionSuperLogin = (target: 'userid'|'password'|'otp'|'normal') => {
-    setLoadingTarget(target);
     setSuperLoginError('');
     setSuperLoginStage('loading');
     window.setTimeout(() => {
@@ -245,8 +243,8 @@ export default function LoginPage() {
             {superLoginError && <p role="alert" className="text-sm text-red-600">{superLoginError}</p>}<Button className="w-full" onClick={submitPassword}>Continue</Button></div>
           </div></main>
         ) : superLoginStage === 'otp' ? (
-          <main className="flex flex-1 items-start justify-center px-4 pt-8"><div className="w-full max-w-md border bg-white p-5"><h2 className="text-lg font-semibold text-primary">OTP Verification</h2><p className="my-3 text-sm text-muted-foreground">Enter the locally configured demo OTP. This is not a bank-issued OTP.</p><label htmlFor="super-otp" className="text-sm font-medium">OTP</label><input id="super-otp" className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" inputMode="numeric" autoComplete="one-time-code" value={superOtp} onChange={e=>setSuperOtp(e.target.value.replace(/\D/g,'').slice(0,8))} onKeyDown={e=>{if(e.key==='Enter')submitOtp();}} />
-            {superLoginError && <p role="alert" className="mt-2 text-sm text-red-600">{superLoginError}</p>}<Button className="mt-4 w-full" onClick={submitOtp}>Verify OTP</Button></div></main>
+          <main className="flex flex-1 items-start justify-center px-4 pt-8"><div role="dialog" aria-modal="true" aria-labelledby="super-otp-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div className="w-full max-w-md rounded-lg border bg-white p-5 shadow-xl"><div className="mb-4 flex items-center gap-3">{headerLogo && <Image src={headerLogo} alt="App Logo" width={64} height={32} className="h-8 w-auto object-contain" />}<h2 id="super-otp-title" className="text-lg font-semibold text-primary">OTP Verification</h2></div><p className="my-3 text-sm text-muted-foreground">Enter the locally configured demo OTP. This is not a bank-issued OTP.</p><label htmlFor="super-otp" className="text-sm font-medium">OTP</label><input id="super-otp" className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" inputMode="numeric" autoComplete="one-time-code" value={superOtp} onChange={e=>setSuperOtp(e.target.value.replace(/\D/g,'').slice(0,8))} onKeyDown={e=>{if(e.key==='Enter')submitOtp();}} />
+            {superLoginError && <p role="alert" className="mt-2 text-sm text-red-600">{superLoginError}</p>}<Button className="mt-4 w-full" onClick={submitOtp}>Verify OTP</Button></div></div></main>
         ) : null}
         <footer className="border-t bg-white px-4 py-3 text-center text-xs text-muted-foreground">© PNB ONE · Local prototype <span className="block pt-1">QR scan is unavailable until normal MPIN login.</span></footer>
       </div>
