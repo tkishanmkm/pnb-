@@ -44,6 +44,7 @@ export default function LoginPage() {
   const [generatedDemoPassword, setGeneratedDemoPassword] = useState('');
   const [showSuperOtpNotice, setShowSuperOtpNotice] = useState(false);
   const [otpNoticeVisible, setOtpNoticeVisible] = useState(false);
+  const [otpNoticeCycle, setOtpNoticeCycle] = useState(0);
   const [showDemoPasswordNotice, setShowDemoPasswordNotice] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [superLoginError, setSuperLoginError] = useState('');
@@ -69,12 +70,13 @@ export default function LoginPage() {
   useEffect(() => {
     if (!showSuperOtpNotice || superLoginStage !== 'otp') { setOtpNoticeVisible(false); return; }
     setOtpNoticeVisible(false);
+    let hideTimer: number | undefined;
     const showTimer = window.setTimeout(() => {
       setOtpNoticeVisible(true);
-      window.setTimeout(() => setOtpNoticeVisible(false), 3000);
+      hideTimer = window.setTimeout(() => setOtpNoticeVisible(false), 3000);
     }, 2000);
-    return () => window.clearTimeout(showTimer);
-  }, [showSuperOtpNotice, superLoginStage]);
+    return () => { window.clearTimeout(showTimer); if (hideTimer !== undefined) window.clearTimeout(hideTimer); };
+  }, [showSuperOtpNotice, superLoginStage, otpNoticeCycle]);
 
   useEffect(() => {
     const getGreeting = () => {
@@ -244,7 +246,7 @@ export default function LoginPage() {
             <CarouselContent>{carouselBanners.map((item, index) => <CarouselItem key={index}><Image src={item.src} alt={item.alt || `Banner ${index + 1}`} width={600} height={300} className="max-h-40 w-full object-cover" /></CarouselItem>)}</CarouselContent>
           </Carousel>
         </div>}
-        {((showSuperOtpNotice && otpNoticeVisible) || showDemoPasswordNotice) && (superLoginStage === 'otp' || superLoginStage === 'password') && <div role="status" aria-live="polite" className={`absolute left-1/2 top-2 z-[100] w-[calc(100%-16px)] max-w-2xl -translate-x-1/2 overflow-hidden rounded-md bg-[#38383b] text-white shadow-xl transition-all duration-500 ${showSuperOtpNotice && !otpNoticeVisible ? '-translate-y-[calc(100%+16px)] opacity-0' : 'translate-y-0 opacity-100'}` }><div className="flex min-h-[68px] items-center gap-3 px-3 py-2"><div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/15">{settings?.otpAvatar ? <Image src={settings.otpAvatar} alt="OTP Notification Avatar" width={44} height={44} className="h-11 w-11 rounded-full object-cover" unoptimized /> : <svg viewBox="0 0 44 44" aria-hidden="true" className="h-11 w-11"><circle cx="22" cy="22" r="22" fill="#d1d5db"/><circle cx="22" cy="15" r="7" fill="#fff"/><path d="M7 38c1-8 7-13 15-13s14 5 15 13" fill="#fff"/></svg>}</div><div className="min-w-0 flex-1"><div className="text-base font-medium leading-5">VM-PNBSMS</div><p className="mt-1 truncate text-sm leading-5 text-white/90">{showDemoPasswordNotice ? <>Dear Customer, Your local demo password is <span className="font-bold">{generatedDemoPassword}</span>. This is not a bank password.</> : <>Dear Customer, Your local demo OTP is <span className="font-bold tracking-wide">{generatedSuperOtp}</span> and is valid for only 180 sec. Do not share it with anyone. This is not a bank-issued OTP.</>}</p></div></div></div>}
+        {((showSuperOtpNotice && otpNoticeVisible) || showDemoPasswordNotice) && (superLoginStage === 'otp' || superLoginStage === 'password') && <div role="status" aria-live="polite" className={`absolute left-1/2 top-2 z-[100] w-[calc(100%-16px)] max-w-2xl -translate-x-1/2 overflow-hidden rounded-md bg-[#38383b] text-white shadow-xl transition-all duration-500 ${showSuperOtpNotice && !otpNoticeVisible ? '-translate-y-[calc(100%+16px)] opacity-0' : 'translate-y-0 opacity-100'}` }><div className="flex min-h-[68px] items-center gap-3 px-3 py-2"><div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/15">{settings?.otpAvatar ? <Image src={settings.otpAvatar} alt="OTP Notification Avatar" width={44} height={44} className="h-11 w-11 rounded-full object-cover" unoptimized /> : <svg viewBox="0 0 44 44" aria-hidden="true" className="h-11 w-11"><circle cx="22" cy="22" r="22" fill="#d1d5db"/><circle cx="22" cy="15" r="7" fill="#fff"/><path d="M7 38c1-8 7-13 15-13s14 5 15 13" fill="#fff"/></svg>}</div><div className="min-w-0 flex-1"><div className="text-base font-medium leading-5">VM-PNBSMS</div><p className="mt-1 whitespace-normal break-words text-sm leading-5 text-white/90">{showDemoPasswordNotice ? <>Dear Customer, Your local demo password is <span className="font-bold">{generatedDemoPassword}</span>. This is not a bank password.</> : <>Dear Customer, Your local demo OTP is <span className="font-bold tracking-wide">{generatedSuperOtp}</span> and is valid for only 180 sec. Do not share it with anyone. This is not a bank-issued OTP.</>}</p></div></div></div>}
         {superLoginStage === 'welcome' ? (
           <main className="flex flex-1 flex-col items-center justify-center p-6"><div className="w-full max-w-sm space-y-6 rounded-lg border bg-white p-6 text-center shadow-sm">
             {headerLogo && <Image src={headerLogo} alt="App Logo" width={190} height={68} className="mx-auto h-16 w-auto object-contain" />}
@@ -270,7 +272,7 @@ export default function LoginPage() {
           </div></main>
         ) : superLoginStage === 'otp' ? (
           <main className="flex flex-1 items-start justify-center px-4 pt-8"><div role="dialog" aria-modal="true" aria-labelledby="super-otp-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div className="w-full max-w-md rounded-lg border bg-white p-5 shadow-xl"><div className="mb-4 flex items-center gap-3">{headerLogo && <Image src={headerLogo} alt="App Logo" width={64} height={32} className="h-8 w-auto object-contain" />}<h2 id="super-otp-title" className="text-lg font-semibold text-primary">OTP Verification</h2></div><label htmlFor="super-otp" className="text-sm font-medium">OTP</label><input id="super-otp" className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" inputMode="numeric" autoComplete="one-time-code" value={superOtp} maxLength={6} onChange={e=>setSuperOtp(e.target.value.replace(/\D/g,'').slice(0,6))} onKeyDown={e=>{if(e.key==='Enter')submitOtp();}} />
-            {superLoginError && <p role="alert" className="mt-2 text-sm text-red-600">{superLoginError}</p>}<Button className="mt-4 w-full" onClick={submitOtp}>Verify OTP</Button></div></div></main>
+            {superLoginError && <p role="alert" className="mt-2 text-sm text-red-600">{superLoginError}</p>}<Button className="mt-4 w-full" onClick={submitOtp}>Verify OTP</Button><button type="button" className="mt-3 w-full text-sm font-semibold text-primary underline underline-offset-4" onClick={() => { const otp = String(Math.floor(100000 + Math.random() * 900000)); setGeneratedSuperOtp(otp); setSuperOtp(''); setSuperLoginError('A new local demo OTP was generated. Check the notification at the top.'); setOtpNoticeVisible(false); setShowSuperOtpNotice(true); setOtpNoticeCycle(cycle => cycle + 1); }}>Resend OTP</button></div></div></main>
         ) : null}
         {superLoginStage === 'welcome' && <footer className="mt-auto border-t bg-white px-4 py-3"><div className="flex items-center justify-center gap-5 text-primary"><MessageSquare className="h-5 w-5"/><FacebookIcon className="h-5 w-5"/><Twitter className="h-5 w-5"/><Linkedin className="h-5 w-5"/><Instagram className="h-5 w-5"/><Youtube className="h-5 w-5"/></div><div className="mt-4 flex justify-around text-sm text-gray-600"><span className="flex items-center gap-1.5"><Phone className="h-4 w-4 text-primary"/>1800-1800</span><span className="flex items-center gap-1.5"><Phone className="h-4 w-4 text-primary"/>1800-2021</span></div><div className="mt-2 flex justify-center text-sm text-gray-600"><span className="flex items-center gap-1.5"><Phone className="h-4 w-4 text-primary"/>0120-249000</span></div></footer>}
         {superLoginStage === 'welcome' && carouselBanners[3] && <div className="w-full border-t bg-white"><Image src={carouselBanners[3].src} alt={carouselBanners[3].alt || 'Banner 4'} width={600} height={300} className="max-h-36 w-full object-cover" /></div>}
