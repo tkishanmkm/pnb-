@@ -82,6 +82,10 @@ const AccountSettings = () => {
                 <Label htmlFor="mobileLast4">Registered mobile last 4 digits (chat demo)</Label>
                 <Input id="mobileLast4" inputMode="numeric" maxLength={4} value={settings.registeredMobileLast4 || (user.mobileNumber || '').slice(-4)} onChange={e => setSettings({...settings, registeredMobileLast4: e.target.value.replace(/\D/g, '').slice(0,4)})} placeholder="Enter last four digits" />
             </div>
+            <div className="space-y-2">
+                <Label htmlFor="aadhaarLast4">Aadhaar last 4 digits (Type 3 demo chat only)</Label>
+                <Input id="aadhaarLast4" inputMode="numeric" maxLength={4} value={settings.registeredAadhaarLast4 || ''} onChange={e => setSettings({...settings, registeredAadhaarLast4: e.target.value.replace(/\D/g, '').slice(0,4)})} placeholder="Enter last four digits" />
+            </div>
             <h3 className="font-semibold pt-4">Local Prototype Sign-in</h3>
             <p className="text-xs text-muted-foreground">These settings are for the local app demo only. They do not authenticate with Punjab National Bank.</p>
             <div className="space-y-2">
@@ -552,13 +556,16 @@ const EnglishDemoChatBuilder = () => {
         const fullName = account?.accountHolder || state.user.name || 'account holder';
         const surname = fullName.trim().split(/\s+/).slice(-1)[0] || fullName;
         const accountNo = account?.accountNumber || 'not configured in Settings';
-        const last4 = (state.settings.registeredMobileLast4 || state.user.mobileNumber?.slice(-4) || '').trim();
+        const mobileLast4 = (state.settings.registeredMobileLast4 || state.user.mobileNumber?.slice(-4) || '').trim();
+        const aadhaarLast4 = (state.settings.registeredAadhaarLast4 || '').trim();
+        const verificationQuestion = style==='1' ? 'the last four digits of your registered mobile number' : style==='2' ? 'your date of birth as recorded in your profile' : 'the last four digits of your Aadhaar number';
+        const verificationAnswer = style==='1' ? ('registered mobile last four digits: '+(mobileLast4 || '[please configure in Settings]')) : style==='2' ? ('date of birth: '+(state.user.dob || '[please configure in Settings]')) : ('Aadhaar last four digits: '+(aadhaarLast4 || '[please configure in Settings]'));
         const userName = fullName;
         const askIdentity = style==='1'
-          ? 'Thank you for contacting Punjab National Bank. I would be happy to help. Could you please provide your full name, account number, and the last four digits of your registered mobile number?'
+          ? 'Thank you for contacting Punjab National Bank. I would be happy to help. Could you please provide your full name, account number, and '+verificationQuestion+'?'
           : style==='2'
-          ? 'Thank you for contacting Punjab National Bank. I will be pleased to assist with your transaction enquiry. To continue, please provide your full name, account number, and the last four digits of your registered mobile number.'
-          : 'Thank you for contacting Punjab National Bank. I will be glad to guide you through this enquiry. Before proceeding, please provide your full name, account number, and the last four digits of your registered mobile number. Please do not share your PIN, password, or OTP.';
+          ? 'Thank you for contacting Punjab National Bank. I will be pleased to assist with your transaction enquiry. To continue, please provide your full name, account number, and '+verificationQuestion+'.'
+          : 'Thank you for contacting Punjab National Bank. I will be glad to guide you through this enquiry. Before proceeding, please provide your full name, account number, and '+verificationQuestion+'. Please do not share your PIN, password, or OTP.';
         const verify = style==='1' ? 'Thank you, '+surname+'. Please wait while I review the details you provided.'
           : style==='2' ? 'Thank you, '+fullName+'. Please allow me a moment to review the details you provided.'
           : 'Thank you, '+fullName+'. I appreciate your patience. I will now review the details entered in this local demo.';
