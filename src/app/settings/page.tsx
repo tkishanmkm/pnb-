@@ -480,6 +480,7 @@ const ChatHistorySettings = () => {
                     const seen = new Set(state.chatHistory.map(m => m.id));
                     next = [...state.chatHistory, ...incoming.filter(m => !seen.has(m.id))];
                 }
+                next = next.sort((a,b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
                 dispatch({type:'UPDATE_CHAT_HISTORY', payload:next});
                 setHistory(next);
                 toast({title:'Chat history imported',description: mode === 'replace' ? 'Existing chat history was replaced.' : 'New messages were appended; duplicate IDs were skipped.'});
