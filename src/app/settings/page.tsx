@@ -593,7 +593,7 @@ const EnglishDemoChatBuilder = () => {
         add('system','Agent '+agent+' connected.',120000);
         add('agent',timeGreeting+'! My name is '+agent+'. How may I help you today?',1000);
         if(kind==='last') add('user','I want to confirm my last transaction of '+(tx?Math.abs(tx.amount).toLocaleString('en-IN'):'[amount not available]')+' INR.',60000);
-        chosen.forEach((line,i)=>{add('agent',line,style==='1'?180000:style==='2'?240000:300000); if(i===0 && kind==='last') add('user','My name is '+userName+'. My account number is '+accountNo+'. My registered mobile last four digits are '+(last4 || '[please configure in Settings]')+'.',180000); if(i===1 && kind==='last') add('user','okay',60000);});
+        chosen.forEach((line,i)=>{add('agent',line,style==='1'?180000:style==='2'?240000:300000); if(i===0 && kind==='last') add('user','My name is '+userName+'. My account number is '+accountNo+'. '+verificationAnswer+'.',180000); if(i===1 && kind==='last') add('user','okay',60000);});
         if(kind==='last' && tx) {
             add('user','Transaction date is '+new Date(tx.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'})+' and amount is '+money(tx.amount)+'. This is the transaction I want to review.',180000);
             add('agent',style==='1'?'Thank you. Please hold on while I review the saved transaction details.':style==='2'?'Thank you for confirming. Please allow me a moment to review the saved transaction details.':'Thank you for confirming those details. Please allow me a moment to review the transaction information stored in this local demo.',180000);
