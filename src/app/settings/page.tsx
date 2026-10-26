@@ -472,8 +472,8 @@ const ChatHistorySettings = () => {
             try {
                 const parsed = JSON.parse(String(reader.result));
                 const raw = Array.isArray(parsed) ? parsed : parsed?.chatHistory;
-                if (!Array.isArray(raw) || !raw.every((m:any) => m && typeof m.id === 'string' && ['user','agent','system'].includes(m.sender) && typeof m.content === 'string' && typeof m.timestamp === 'string' && !Number.isNaN(Date.parse(m.timestamp)))) throw new Error('Invalid chat history');
-                const incoming: ChatMessage[] = raw.map((m:any) => ({id:m.id, sender:m.sender, content:m.content, timestamp:new Date(m.timestamp).toISOString(), ...(typeof m.avatarUrl === 'string' ? {avatarUrl:m.avatarUrl} : {})}));
+                if (!Array.isArray(raw) || !raw.every((m: unknown) => { if (!m || typeof m !== 'object') return false; const item = m as Record<string, unknown>; return typeof item.id === 'string' && ['user','agent','system'].includes(String(item.sender)) && typeof item.content === 'string' && typeof item.timestamp === 'string' && !Number.isNaN(Date.parse(item.timestamp)); })) throw new Error('Invalid chat history');
+                const incoming: ChatMessage[] = raw.map((m: unknown) => { const item = m as Record<string, unknown>; return {id:item.id as string, sender:item.sender as ChatMessage['sender'], content:item.content as string, timestamp:new Date(item.timestamp as string).toISOString(), ...(typeof item.avatarUrl === 'string' ? {avatarUrl:item.avatarUrl} : {})}; });
                 let next: ChatMessage[];
                 if (mode === 'replace') next = incoming;
                 else {
@@ -581,7 +581,6 @@ const EnglishDemoChatBuilder = () => {
           investigation:[askIdentity,verify,'Please share only the transaction date and amount needed for this demo enquiry. Do not share your full account number, date of birth, PIN, password or OTP.','For actual verification, contact the bank through an official channel.']
         };
         const chosen = templates[kind] || templates.last;
-        const total = chosen.length + 7;
         const startTime = now - 86400000;
         let offset = 0;
         const add = (sender:ChatMessage['sender'], content:string, delay:number) => {
@@ -976,7 +975,6 @@ const PdfExtraction = () => {
     const [isExtracting, setIsExtracting] = useState(false);
     const [previewData, setPreviewData] = useState<Transaction[]>([]);
     const [statementAccountNumber, setStatementAccountNumber] = useState<string | null>(null);
-    const [matchedAccountId, setMatchedAccountId] = useState<string | null>(null);
     const [statementDetails, setStatementDetails] = useState<ExtractedStatementDetails | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
     const normalizeAccountNumber = (value: string | null | undefined) => (value || '').replace(/\D/g, '');
@@ -991,7 +989,7 @@ const PdfExtraction = () => {
             setFile(e.target.files[0]);
             setPreviewData([]);
             setStatementAccountNumber(null);
-            setMatchedAccountId(null);
+
             setStatementDetails(null);
         }
     };
@@ -1021,7 +1019,7 @@ const PdfExtraction = () => {
                         accountId: destinationAccountId,
                     }));
                     setStatementAccountNumber(accountNumber);
-                    setMatchedAccountId(destinationAccountId);
+
                     setPreviewData(statementTransactions);
                     setIsExtracting(false);
                     toast({
@@ -1105,7 +1103,7 @@ const PdfExtraction = () => {
         setPreviewData([]);
         setFile(null);
         setStatementAccountNumber(null);
-        setMatchedAccountId(null);
+
         setStatementDetails(null);
     };
 
@@ -1149,7 +1147,7 @@ const PdfExtraction = () => {
                     } as Transaction;
                 });
                 setStatementAccountNumber(importedAccountNumber);
-                setMatchedAccountId(destinationAccountId);
+
                 setStatementDetails(null);
                 setPreviewData(transactions);
                 toast({
