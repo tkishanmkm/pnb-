@@ -1136,6 +1136,10 @@ const SettingsPageContent = () => {
                             <CardHeader><CardTitle>Payee Management</CardTitle></CardHeader>
                             <PayeeSettings />
                         </Card>
+                        <Card className="mt-4">
+                            <CardHeader><CardTitle>Super Logout</CardTitle><CardDescription>Return to the welcome screen without deleting saved app data.</CardDescription></CardHeader>
+                            <CardContent><Button variant="destructive" className="w-full" onClick={() => { try { window.localStorage.setItem('pnb-superlogout-pending', '1'); } catch {} router.push('/'); }}>Super Logout</Button></CardContent>
+                        </Card>
                     </TabsContent>
                     <TabsContent value="data" className="mt-4">
                         <Card>
@@ -1146,6 +1150,7 @@ const SettingsPageContent = () => {
                             <CardHeader><CardTitle>Chat History Management</CardTitle></CardHeader>
                             <ChatHistorySettings />
                         </Card>
+                        <EnglishDemoChatBuilder />
                         <Card className="mt-4">
                              <CardHeader><CardTitle>Data Management</CardTitle></CardHeader>
                             <DataManagement />
