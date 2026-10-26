@@ -483,32 +483,34 @@ const EnglishDemoChatBuilder = () => {
         const now = Date.now();
         const account = state.accounts[0];
         const latest = [...state.transactions].sort((a,b) => new Date(b.date).getTime()-new Date(a.date).getTime())[0];
-        const money = (n:number) => (state.settings.currencySymbol || '₹') + Math.abs(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
-        const greeting = new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',hour:'numeric',hour12:false}).format(new Date());
-        const hour = Number(greeting);
+        const money = (n:number) => (state.settings.currencySymbol || 'INR ') + Math.abs(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+        const hour = Number(new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',hour:'numeric',hour12:false}).format(new Date()));
         const salutation = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : hour < 21 ? 'Good evening' : 'Hello';
         const scripts: Record<string,string[]> = {
-            general: ['Thank you for contacting support. I’ll be happy to guide you.','Could you please describe the issue you are experiencing?','Thank you for explaining. Please do not share your MPIN, TPIN, password or OTP in chat.'],
-            last: [latest ? `I can help you review the latest transaction shown in this local demo: ${latest.description}, ${money(latest.amount)}, dated ${new Date(latest.date).toLocaleDateString('en-IN')}.` : 'No transaction is available in the saved demo data yet.','Please compare the details with your own records. This demo cannot verify a bank-side payment status.'],
-            selected: [latest ? `The most recent saved demo transaction is ${latest.description} for ${money(latest.amount)}.` : 'No saved transaction is available to review.','This is a local preview of stored app data, not a confirmation from a bank system.'],
-            balance: [account ? `The balance currently stored in this local demo is ${money(account.balance)}.` : 'No account balance is configured in this demo.','Please treat this as app-stored data only; it is not a live bank balance.'],
-            investigation: ['I can help you organise the details for a transaction enquiry.','Please identify the transaction date and amount from your records. Do not post your full account number, date of birth, OTP, MPIN or password here.','I have recorded the information in this demo conversation. Contact your bank through its official channel for actual verification.']
+            general: ['Thank you for contacting support. I will be happy to guide you.','Could you please describe the issue you are experiencing?','For your safety, never share your MPIN, TPIN, password or OTP in chat.'],
+            last: [latest ? 'Latest saved demo transaction: '+latest.description+', '+money(latest.amount)+', dated '+new Date(latest.date).toLocaleDateString('en-IN')+'.' : 'No transaction is available in the saved demo data.','Please compare these stored details with your own records. This demo cannot verify bank-side payment status.'],
+            selected: [latest ? 'The latest saved demo transaction is '+latest.description+' for '+money(latest.amount)+'.' : 'No saved transaction is available to review.','This is a preview of locally stored app data, not a bank confirmation.'],
+            balance: [account ? 'The balance currently stored in this local demo is '+money(account.balance)+'.' : 'No account balance is configured in this demo.','This is app-stored data only, not a live bank balance.'],
+            investigation: ['I can help you organise the details for a transaction enquiry.','Please identify the transaction date and amount from your records. Do not share your full account number, date of birth, OTP, MPIN or password here.','For actual verification, contact your bank through its official channel.']
         };
-        const chosenScript = scripts[kind] || scripts.general;
-        const duration = (chosenScript.length + 3) * 360000;
-        const start = now - duration;
+        const chosen = scripts[kind] || scripts.general;
+        const startTime = now - (chosen.length + 3) * 360000;
+        const makeMessage = (sender: ChatMessage['sender'], content: string, offset: number): ChatMessage => ({
+            id: 'demo-chat-'+Date.now()+'-'+Math.random().toString(36).slice(2)+'-'+offset,
+            sender, content, timestamp: new Date(startTime + offset).toISOString()
+        });
         const messages: ChatMessage[] = [
-            {id:crypto.randomUUID(),sender:'system',content:'DEMO ONLY — simulated conversation; not a real bank agent or bank confirmation.',timestamp:new Date(start).toISOString()},
-            {id:crypto.randomUUID(),sender:'system',content:'Please wait while you are transferred to an agent...',timestamp:new Date(start+1000).toISOString()},
-            {id:crypto.randomUUID(),sender:'system',content:`Demo agent ${agent} connected.`,timestamp:new Date(start+120000).toISOString()},
-            {id:crypto.randomUUID(),sender:'agent',content:`${salutation}! My name is ${agent}. How may I help you today?`,timestamp:new Date(start+121000).toISOString()},
+            makeMessage('system','DEMO ONLY - simulated conversation; not a real bank agent or bank confirmation.',0),
+            makeMessage('system','Please wait while you are transferred to an agent...',1000),
+            makeMessage('system','Demo agent '+agent+' connected.',120000),
+            makeMessage('agent',salutation+'! My name is '+agent+'. How may I help you today?',121000)
         ];
-        chosenScript.forEach((line,i)=>messages.push({id:crypto.randomUUID(),sender:'agent',content:line,timestamp:new Date(start+240000+i*360000).toISOString()}));
-        messages.push({id:crypto.randomUUID(),sender:'system',content:'Demo conversation closed.',timestamp:new Date(now).toISOString()});
+        chosen.forEach((line,i)=>messages.push(makeMessage('agent',line,240000+i*360000)));
+        messages.push(makeMessage('system','Demo conversation closed.',(chosen.length+2)*360000));
         dispatch({type:'UPDATE_CHAT_HISTORY',payload:[...state.chatHistory,...messages]});
         toast({title:'Demo chat added',description:'English-only simulated agent messages were saved to local chat history.'});
     };
-    return <Card className="mt-4"><CardHeader><CardTitle>English Demo Chat Builder</CardTitle><CardDescription>Creates clearly labelled simulated chat messages using locally saved app data. It does not contact or represent the bank.</CardDescription></CardHeader><CardContent className="space-y-3">
+    return <Card className="mt-4"><CardHeader><CardTitle>English Demo Chat Builder</CardTitle><CardDescription>Creates clearly labelled simulated messages from local app data. It does not contact or represent the bank.</CardDescription></CardHeader><CardContent className="space-y-3">
         <Label>Demo agent</Label><Select value={agent} onValueChange={setAgent}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{agents.map(name=><SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select>
         <Label>English chat type</Label><Select value={kind} onValueChange={setKind}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="general">General support</SelectItem><SelectItem value="last">Last transaction review</SelectItem><SelectItem value="selected">Transaction detail review</SelectItem><SelectItem value="balance">Saved balance review</SelectItem><SelectItem value="investigation">Transaction enquiry checklist</SelectItem></SelectContent></Select>
         <Button className="w-full" onClick={generate}>Generate demo chat and save</Button>
