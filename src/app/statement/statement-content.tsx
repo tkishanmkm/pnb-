@@ -4,7 +4,6 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAppStore } from "@/hooks/use-app-store";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home, FileText, FileDown } from "lucide-react";
 import type { Transaction } from "@/lib/types";
