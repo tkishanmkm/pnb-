@@ -140,6 +140,11 @@ export interface AppSettings {
   pnbBanner: string;
   carouselBanners: CarouselBanner[];
   pdfPassword?: string;
+  /** Local prototype-only credentials; not bank authentication. */
+  loginPassword?: string;
+  demoLoginOtp?: string;
+  registeredMobileLast4?: string;
+  agentEnglishStyle?: '1' | '2' | '3';
 }
 
 export interface TransferDetails {
