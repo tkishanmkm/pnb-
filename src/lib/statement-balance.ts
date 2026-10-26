@@ -101,7 +101,7 @@ export function calculateStatementBalances(
     .filter(item => item._time >= fromTime && item._time <= toTime)
     // Show newest rows first, preserving the original imported order on date ties.
     .sort((a, b) => b._time - a._time || a._sourceIndex - b._sourceIndex)
-    .map(({ _sourceIndex, _time, ...tx }) => tx);
+    .map(item => { const tx = { ...item }; delete (tx as typeof item & { _sourceIndex?: number })._sourceIndex; delete (tx as typeof item & { _time?: number })._time; return tx; });
 
   return result;
 }
