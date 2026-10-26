@@ -36,6 +36,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [carouselApi, setCarouselApi] = useState<CarouselApi | undefined>(undefined);
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
+  const [showSuperLogoutWelcome, setShowSuperLogoutWelcome] = useState(false);
 
   const pinInputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -50,6 +51,10 @@ export default function LoginPage() {
       carouselApi.off("reInit", syncActiveDot);
     };
   }, [carouselApi]);
+
+  useEffect(() => {
+    try { setShowSuperLogoutWelcome(window.localStorage.getItem('pnb-superlogout-pending') === '1'); } catch { setShowSuperLogoutWelcome(false); }
+  }, []);
 
   useEffect(() => {
     const getGreeting = () => {
@@ -163,6 +168,20 @@ export default function LoginPage() {
 
   const { user, settings } = state;
   const { carouselBanners } = settings;
+
+  if (showSuperLogoutWelcome) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="w-full max-w-sm rounded-2xl border bg-white p-6 shadow-lg text-center space-y-5">
+          {settings?.appLogo && <Image src={settings.appLogo} alt="App logo" width={150} height={50} className="mx-auto h-12 w-auto object-contain" />}
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary"><ShieldCheck className="h-7 w-7" /></div>
+          <h1 className="text-2xl font-semibold text-gray-900">Welcome to PNB ONE</h1>
+          <p className="text-sm text-gray-600">Local prototype sign-in. Continue with your configured MPIN. This screen does not verify credentials with a bank.</p>
+          <Button className="w-full" onClick={() => { try { window.localStorage.removeItem('pnb-superlogout-pending'); } catch {} setShowSuperLogoutWelcome(false); }}>Continue to MPIN login</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
