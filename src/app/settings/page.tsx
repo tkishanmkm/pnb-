@@ -472,6 +472,46 @@ const ChatHistorySettings = () => {
 };
 
 
+
+const EnglishDemoChatBuilder = () => {
+    const { state, dispatch } = useAppContext();
+    const { toast } = useToast();
+    const [agent, setAgent] = useState('Neha');
+    const [kind, setKind] = useState('general');
+    const agents = ['Neha','Suresh','Mahesh','Pinky','Priya','Rahul','Amit','Anjali','Pooja','Rohit','Sneha','Vikram','Ankit','Kavita','Deepak','Nisha','Arjun','Meera','Sanjay','Riya'];
+    const generate = () => {
+        const now = Date.now();
+        const account = state.accounts[0];
+        const latest = [...state.transactions].sort((a,b) => new Date(b.date).getTime()-new Date(a.date).getTime())[0];
+        const money = (n:number) => (state.settings.currencySymbol || '₹') + Math.abs(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+        const greeting = new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',hour:'numeric',hour12:false}).format(new Date());
+        const hour = Number(greeting);
+        const salutation = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : hour < 21 ? 'Good evening' : 'Hello';
+        const scripts: Record<string,string[]> = {
+            general: ['Thank you for contacting support. I’ll be happy to guide you.','Could you please describe the issue you are experiencing?','Thank you for explaining. Please do not share your MPIN, TPIN, password or OTP in chat.'],
+            last: [latest ? `I can help you review the latest transaction shown in this local demo: ${latest.description}, ${money(latest.amount)}, dated ${new Date(latest.date).toLocaleDateString('en-IN')}.` : 'No transaction is available in the saved demo data yet.','Please compare the details with your own records. This demo cannot verify a bank-side payment status.'],
+            selected: [latest ? `The most recent saved demo transaction is ${latest.description} for ${money(latest.amount)}.` : 'No saved transaction is available to review.','This is a local preview of stored app data, not a confirmation from a bank system.'],
+            balance: [account ? `The balance currently stored in this local demo is ${money(account.balance)}.` : 'No account balance is configured in this demo.','Please treat this as app-stored data only; it is not a live bank balance.'],
+            investigation: ['I can help you organise the details for a transaction enquiry.','Please identify the transaction date and amount from your records. Do not post your full account number, date of birth, OTP, MPIN or password here.','I have recorded the information in this demo conversation. Contact your bank through its official channel for actual verification.']
+        };
+        const messages: ChatMessage[] = [
+            {id:crypto.randomUUID(),sender:'system',content:'DEMO ONLY — simulated conversation; not a real bank agent or bank confirmation.',timestamp:new Date(now).toISOString()},
+            {id:crypto.randomUUID(),sender:'system',content:'Please wait while you are transferred to an agent...',timestamp:new Date(now+1000).toISOString()},
+            {id:crypto.randomUUID(),sender:'system',content:`Demo agent ${agent} connected.`,timestamp:new Date(now+120000).toISOString()},
+            {id:crypto.randomUUID(),sender:'agent',content:`${salutation}! My name is ${agent}. How may I help you today?`,timestamp:new Date(now+121000).toISOString()},
+        ];
+        (scripts[kind] || scripts.general).forEach((line,i)=>messages.push({id:crypto.randomUUID(),sender:'agent',content:line,timestamp:new Date(now+(kind==='general'?240000:360000)+i*360000).toISOString()}));
+        messages.push({id:crypto.randomUUID(),sender:'system',content:'Demo conversation closed.',timestamp:new Date(now+((scripts[kind]||scripts.general).length+2)*360000).toISOString()});
+        dispatch({type:'UPDATE_CHAT_HISTORY',payload:[...state.chatHistory,...messages]});
+        toast({title:'Demo chat added',description:'English-only simulated agent messages were saved to local chat history.'});
+    };
+    return <Card className="mt-4"><CardHeader><CardTitle>English Demo Chat Builder</CardTitle><CardDescription>Creates clearly labelled simulated chat messages using locally saved app data. It does not contact or represent the bank.</CardDescription></CardHeader><CardContent className="space-y-3">
+        <Label>Demo agent</Label><Select value={agent} onValueChange={setAgent}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{agents.map(name=><SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select>
+        <Label>English chat type</Label><Select value={kind} onValueChange={setKind}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="general">General support</SelectItem><SelectItem value="last">Last transaction review</SelectItem><SelectItem value="selected">Transaction detail review</SelectItem><SelectItem value="balance">Saved balance review</SelectItem><SelectItem value="investigation">Transaction enquiry checklist</SelectItem></SelectContent></Select>
+        <Button className="w-full" onClick={generate}>Generate demo chat and save</Button>
+    </CardContent></Card>;
+};
+
 const DataManagement = () => {
     const { state, dispatch } = useAppContext();
     const { toast } = useToast();
