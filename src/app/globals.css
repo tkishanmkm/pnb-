@@ -85,7 +85,7 @@ select {
   font-size: 16px;
 }
 
-/* PNB ONE splash: preserve the original 850 × 1850 reference proportions. */
+/* PNB ONE splash: align every element to the original 850 × 1850 reference. */
 .pnb-reference-splash {
   position: fixed;
   inset: 0;
@@ -113,8 +113,8 @@ select {
 .pnb-reference-splash__circle {
   position: absolute;
   left: 50%;
-  top: 31%;
-  width: 78%;
+  top: 21.6%;
+  width: 64%;
   aspect-ratio: 1;
   transform: translateX(-50%);
   border-radius: 50%;
@@ -132,10 +132,10 @@ select {
   display: block;
   position: absolute;
   left: 50%;
-  top: 36.5%;
+  top: 32.8%;
   transform: translateX(-50%);
-  width: 51%;
-  max-width: 480px;
+  width: 42%;
+  max-width: 360px;
   height: auto;
   aspect-ratio: 1;
   object-fit: contain;
@@ -145,9 +145,9 @@ select {
   display: block;
   position: absolute;
   left: 50%;
-  top: 53.8%;
+  top: 50.6%;
   transform: translateX(-50%);
-  width: 53%;
+  width: 65%;
   max-width: 500px;
   height: auto;
   object-fit: contain;
@@ -156,7 +156,7 @@ select {
   position: absolute;
   left: 0;
   right: 0;
-  top: 77%;
+  top: 70.8%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -165,23 +165,23 @@ select {
 }
 .pnb-reference-splash__bank-logo {
   display: block;
-  width: 22%;
-  max-width: 185px;
+  width: 20%;
+  max-width: 170px;
   height: auto;
   object-fit: contain;
 }
 .pnb-reference-splash__bank-wordmark {
   display: block;
-  width: 39%;
-  max-width: 330px;
+  width: 36%;
+  max-width: 310px;
   height: auto;
   margin-top: .5cqh;
   object-fit: contain;
 }
 .pnb-reference-splash__pcidss {
   display: block;
-  width: 17%;
-  max-width: 145px;
+  width: 15%;
+  max-width: 125px;
   height: auto;
   margin-top: .8cqh;
   object-fit: contain;
