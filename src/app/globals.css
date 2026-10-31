@@ -181,10 +181,7 @@ select {
   .pnb-reference-splash__app-logo { width: 38vw; }
   .pnb-reference-splash__tagline { width: 72vw; }
 }
-/* Splash is a mobile-only portrait screen; leave desktop app pages unchanged. */
-@media (min-width: 768px) {
-  .pnb-reference-splash { display: none !important; }
-}
+/* Keep the same centered PNB ONE splash composition on desktop and mobile. */
 @media (max-width: 767px) {
   .pnb-reference-splash {
     width: 100%;
