@@ -85,16 +85,99 @@ select {
   font-size: 16px;
 }
 
-/* PNB ONE splash layout, proportioned for the supplied 738 × 1600 reference. */
-.pnb-reference-splash { background:linear-gradient(180deg,#fffdfd 0%,#fff7f9 40%,#fde5ed 100%); color:#a20c3b; isolation:isolate; }
-.pnb-reference-splash__circle { position:absolute; left:50%; top:32.2%; width:min(80vw,41.5vh); aspect-ratio:1; transform:translateX(-50%); border-radius:50%; background:rgba(249,204,220,.43); }
-.pnb-reference-splash__center { position:absolute; left:50%; top:40.9%; width:min(46vw,22vh); transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:clamp(12px,2.1vh,26px); }
-.pnb-reference-splash__app-logo,.pnb-reference-splash__app-logo-placeholder { display:block; width:min(31vw,14.5rem); height:auto; aspect-ratio:1; object-fit:contain; flex:0 0 auto; }
-.pnb-reference-splash__app-logo-placeholder { background:transparent; }
-.pnb-reference-splash__tagline { display:block; width:100%; height:auto; object-fit:contain; }
-.pnb-reference-splash__footer { position:absolute; left:0; right:0; top:79.8%; display:flex; flex-direction:column; align-items:center; background:rgba(255,255,255,.22); padding-top:1.1vh; }
-.pnb-reference-splash__bank-logo { display:block; width:min(22vw,10rem); height:auto; object-fit:contain; }
-.pnb-reference-splash__bank-wordmark { display:block; width:min(43vw,18rem); height:auto; margin-top:clamp(7px,1.1vh,13px); object-fit:contain; }
-.pnb-reference-splash__pcidss { display:block; width:min(23vw,10.5rem); height:auto; margin-top:clamp(10px,1.6vh,20px); object-fit:contain; }
-@media (max-height:650px) { .pnb-reference-splash__circle{top:29%;width:min(54vw,42vh)} .pnb-reference-splash__center{top:36%;width:min(34vw,34vh);gap:1vh} .pnb-reference-splash__app-logo{width:min(25vw,17vh)} .pnb-reference-splash__footer{top:78%;padding-top:.5vh} .pnb-reference-splash__bank-logo{width:min(15vw,95px)} .pnb-reference-splash__bank-wordmark{width:min(30vw,190px);margin-top:4px} .pnb-reference-splash__pcidss{width:min(15vw,95px);margin-top:5px} }
-@media (max-width:380px) { .pnb-reference-splash__center{width:48vw} .pnb-reference-splash__app-logo{width:34vw} }
+/* PNB ONE splash only — scoped so the rest of the Next.js app layout is untouched. */
+.pnb-reference-splash {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fffdfE 0%, #fff5f8 31%, #fde7ef 66%, #fce0ea 100%);
+  color: #a20c3b;
+  isolation: isolate;
+}
+.pnb-reference-splash__circle {
+  position: absolute;
+  left: 50%;
+  top: 32%;
+  width: min(79vw, 41.5vh);
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(255, 190, 210, 0.18);
+}
+.pnb-reference-splash__center {
+  position: absolute;
+  left: 50%;
+  top: 40.5%;
+  width: min(68vw, 32rem);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(8px, 1.4vh, 20px);
+}
+.pnb-reference-splash__app-logo,
+.pnb-reference-splash__app-logo-placeholder {
+  display: block;
+  width: min(36vw, 270px);
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+.pnb-reference-splash__app-logo-placeholder { background: transparent; }
+.pnb-reference-splash__tagline {
+  display: block;
+  width: min(68vw, 460px);
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+.pnb-reference-splash__footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 79%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 1vh;
+  background: rgba(255, 255, 255, 0.12);
+}
+.pnb-reference-splash__bank-logo {
+  display: block;
+  width: min(22vw, 185px);
+  height: auto;
+  object-fit: contain;
+}
+.pnb-reference-splash__bank-wordmark {
+  display: block;
+  width: min(43vw, 330px);
+  height: auto;
+  margin-top: clamp(5px, 0.8vh, 12px);
+  object-fit: contain;
+}
+.pnb-reference-splash__pcidss {
+  display: block;
+  width: min(16vw, 135px);
+  height: auto;
+  margin-top: clamp(8px, 1.3vh, 18px);
+  object-fit: contain;
+}
+@media (max-height: 700px) {
+  .pnb-reference-splash__circle { top: 27%; width: min(54vw, 43vh); }
+  .pnb-reference-splash__center { top: 35%; width: min(68vw, 30rem); gap: 1vh; }
+  .pnb-reference-splash__app-logo { width: min(28vw, 24vh); }
+  .pnb-reference-splash__tagline { width: min(62vw, 380px); }
+  .pnb-reference-splash__footer { top: 77%; padding-top: 0.4vh; }
+  .pnb-reference-splash__bank-logo { width: min(15vw, 110px); }
+  .pnb-reference-splash__bank-wordmark { width: min(30vw, 230px); margin-top: 3px; }
+  .pnb-reference-splash__pcidss { width: min(12vw, 85px); margin-top: 4px; }
+}
+@media (max-width: 380px) {
+  .pnb-reference-splash__center { width: 72vw; }
+  .pnb-reference-splash__app-logo { width: 38vw; }
+  .pnb-reference-splash__tagline { width: 72vw; }
+}
