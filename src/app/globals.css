@@ -1,86 +1,86 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 240 10% 98%; /* Off-White */
-    --foreground: 240 5.9% 10%;
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 240 5.9% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 5.9% 10%;
-    --primary: 345 100% 25.1%; /* Deep Red from image */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 45 93% 55%; /* Gold/Yellow from image */
-    --accent-foreground: 45 100% 25%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 345 100% 25.1%;
-    --radius: 0.5rem;
-  }
 
-  .dark {
-    --background: 240 5.9% 10%;
-    --foreground: 0 0% 98%;
-    --card: 240 5.9% 10%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 5.9% 10%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 345 100% 25.1%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 45 93% 55%;
-    --accent-foreground: 45 100% 95%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 345 100% 25.1%;
-  }
+/* PNB ONE reference splash — proportions based on pnb splash.jpeg (738 × 1600). */
+.pnb-reference-splash {
+  --pnb-splash-pink: #fff5f6;
+  --pnb-splash-circle: #ffebee;
+  background: linear-gradient(180deg, #fffafb 0%, #fff5f6 43%, #ffeaed 100%);
+  color: #a20c3b;
+  isolation: isolate;
 }
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+.pnb-reference-splash__circle {
+  position: absolute;
+  width: min(79vw, 59vh);
+  aspect-ratio: 1;
+  left: 50%;
+  top: 31.8%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(255, 229, 233, 0.54);
 }
-
-
-/* Mobile Safari viewport and safe-area compatibility. */
-html {
-  min-height: 100%;
-  -webkit-text-size-adjust: 100%;
+.pnb-reference-splash__center {
+  position: absolute;
+  left: 50%;
+  top: 41.2%;
+  width: min(56vw, 42vh);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(12px, 2.1vh, 25px);
 }
-
-body {
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+.pnb-reference-splash__app-logo,
+.pnb-reference-splash__app-logo-placeholder {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 23vh;
+  object-fit: contain;
 }
-
-button,
-input,
-select,
-textarea {
-  -webkit-appearance: none;
-  appearance: none;
+.pnb-reference-splash__app-logo-placeholder {
+  aspect-ratio: 1;
 }
-
-input,
-textarea,
-select {
-  font-size: 16px;
+.pnb-reference-splash__tagline {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+.pnb-reference-splash__footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 79.8%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.pnb-reference-splash__bank-logo {
+  display: block;
+  width: min(21vw, 155px);
+  height: auto;
+  object-fit: contain;
+}
+.pnb-reference-splash__bank-wordmark {
+  display: block;
+  width: min(42vw, 285px);
+  height: auto;
+  margin-top: clamp(7px, 1.1vh, 13px);
+  object-fit: contain;
+}
+.pnb-reference-splash__pcidss {
+  display: block;
+  width: min(22vw, 165px);
+  height: auto;
+  margin-top: clamp(10px, 1.6vh, 20px);
+  object-fit: contain;
+}
+@media (max-height: 650px) {
+  .pnb-reference-splash__circle { top: 24%; width: min(54vw, 54vh); }
+  .pnb-reference-splash__center { top: 28%; width: min(34vw, 34vh); gap: 1vh; }
+  .pnb-reference-splash__app-logo { max-height: 17vh; }
+  .pnb-reference-splash__footer { top: 76%; }
+  .pnb-reference-splash__bank-logo { width: min(15vw, 95px); }
+  .pnb-reference-splash__bank-wordmark { width: min(30vw, 190px); margin-top: 4px; }
+  .pnb-reference-splash__pcidss { width: min(15vw, 95px); margin-top: 5px; }
 }

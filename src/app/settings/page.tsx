@@ -342,7 +342,7 @@ const AssetSettings = () => {
             reader.onerror = (error) => {
                 console.error("FileReader error reading asset file:", error);
             };
-            reader.readAsArrayBuffer(file);
+            reader.readAsDataURL(file);
         }
     };
     
@@ -396,12 +396,29 @@ const AssetSettings = () => {
             <h3 className="font-semibold pt-4">PDF Header Banner</h3>
             <Input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (dataUrl) => handleSettingsChange('pdfBanner', dataUrl))} />
 
-            <h3 className="font-semibold pt-4">Splash Screen Logo (PNB ONE)</h3>
+            <h3 className="font-semibold pt-4">Splash Screen — PNB ONE App Logo</h3>
+            <p className="text-xs text-muted-foreground">Upload the central PNB ONE logo. It is saved in app state and included in JSON exports.</p>
             <Input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (dataUrl) => handleSettingsChange('pnbOneLogo', dataUrl))} />
+            {state.settings.pnbOneLogo && <img src={state.settings.pnbOneLogo} alt="PNB ONE splash logo preview" className="h-20 w-20 object-contain rounded border p-1" />}
 
-            <h3 className="font-semibold pt-4">Splash Screen Banner (PNB)</h3>
+            <h3 className="font-semibold pt-4">Splash Screen — #JustOneApp Artwork</h3>
+            <Input type="file" accept="image/png,image/*" onChange={(e) => handleFileChange(e, (dataUrl) => handleSettingsChange('splashJustOneAppAsset', dataUrl))} />
+            {state.settings.splashJustOneAppAsset && <img src={state.settings.splashJustOneAppAsset} alt="#JustOneApp splash artwork preview" className="max-h-16 max-w-full object-contain rounded border p-1" />}
+
+            <h3 className="font-semibold pt-4">Splash Screen — PNB Logo</h3>
+            <Input type="file" accept="image/png,image/*" onChange={(e) => handleFileChange(e, (dataUrl) => handleSettingsChange('splashPnbLogoAsset', dataUrl))} />
+            {state.settings.splashPnbLogoAsset && <img src={state.settings.splashPnbLogoAsset} alt="PNB splash logo preview" className="h-16 w-28 object-contain rounded border p-1" />}
+
+            <h3 className="font-semibold pt-4">Splash Screen — Punjab National Bank Wordmark</h3>
+            <Input type="file" accept="image/png,image/*" onChange={(e) => handleFileChange(e, (dataUrl) => handleSettingsChange('splashBankWordmarkAsset', dataUrl))} />
+            {state.settings.splashBankWordmarkAsset && <img src={state.settings.splashBankWordmarkAsset} alt="Punjab National Bank wordmark preview" className="max-h-12 max-w-full object-contain rounded border p-1" />}
+
+            <h3 className="font-semibold pt-4">Splash Screen — PCI DSS Mark</h3>
+            <Input type="file" accept="image/png,image/*" onChange={(e) => handleFileChange(e, (dataUrl) => handleSettingsChange('splashPciDssAsset', dataUrl))} />
+            {state.settings.splashPciDssAsset && <img src={state.settings.splashPciDssAsset} alt="PCI DSS splash mark preview" className="h-16 w-28 object-contain rounded border p-1" />}
+
+            <h3 className="font-semibold pt-4">Legacy Splash Screen Banner (PNB)</h3>
             <Input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (dataUrl) => handleSettingsChange('pnbBanner', dataUrl))} />
-
             <h3 className="font-semibold pt-4">Statement Last Page PDF</h3>
             <Input type="file" accept=".pdf" onChange={(e) => handleFileChange(e, (dataUrl) => handleSettingsChange('lastPagePdfDataUri', dataUrl))} />
 
@@ -646,10 +663,34 @@ const DataManagement = () => {
         setStorageInfo(prev => ({ ...prev, persistent }));
     };
 
-    const handleExport = () => {
+    const handleExport = async () => {
         try {
+            const loadLocalAsset = async (path: string): Promise<string> => {
+                const response = await fetch(path);
+                if (!response.ok) throw new Error(`Could not load splash asset: ${path}`);
+                const blob = await response.blob();
+                return await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Could not encode splash asset'));
+                    reader.onerror = () => reject(reader.error || new Error('Could not encode splash asset'));
+                    reader.readAsDataURL(blob);
+                });
+            };
+            const [justOneAppAsset, pnbLogoAsset, bankWordmarkAsset, pciDssAsset] = await Promise.all([
+                state.settings.splashJustOneAppAsset || loadLocalAsset('/pnb-splash/justoneapp.png'),
+                state.settings.splashPnbLogoAsset || loadLocalAsset('/pnb-splash/pnb-logo.png'),
+                state.settings.splashBankWordmarkAsset || loadLocalAsset('/pnb-splash/punjab-national-bank.png'),
+                state.settings.splashPciDssAsset || loadLocalAsset('/pnb-splash/pcidss.png'),
+            ]);
             const stateToExport = JSON.parse(JSON.stringify({
                 ...state,
+                settings: {
+                    ...state.settings,
+                    splashJustOneAppAsset: justOneAppAsset,
+                    splashPnbLogoAsset: pnbLogoAsset,
+                    splashBankWordmarkAsset: bankWordmarkAsset,
+                    splashPciDssAsset: pciDssAsset,
+                },
                 // This app's demo backup intentionally includes PINs so the same demo
                 // credentials continue to work after restoring the backup.
                 user: { ...state.user, mpin: state.user.mpin, tpin: state.user.tpin },
@@ -667,10 +708,10 @@ const DataManagement = () => {
             a.click();
             a.remove();
             window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-            toast({ title: "Success", description: "Backup exported with MPIN and TPIN. Keep this JSON file private because it contains your demo PINs." });
+            toast({ title: "Success", description: "Full backup exported, including the splash screen and all logo artwork. Keep this JSON file private because it contains your demo PINs." });
         } catch (error) {
             console.error("Export error:", error);
-            toast({ variant: 'destructive', title: "Error", description: "Failed to export state." });
+            toast({ variant: 'destructive', title: "Error", description: "Failed to export state and splash assets." });
         }
     };
 
@@ -764,7 +805,7 @@ const DataManagement = () => {
                         isStateInitialized: true,
                         loginPending: false,
                         isLoggingOut: false,
-                        // Backups omit reusable PIN secrets. Preserve configured PINs on this device.
+                        // Restore valid demo PINs from this backup; otherwise preserve the configured PINs on this device.
                         user: {
                             ...defaultState.user,
                             ...source.user,
@@ -898,7 +939,7 @@ const IconAssetsSettings = () => {
             reader.onerror = (error) => {
                 console.error("FileReader error reading icon asset:", error);
             };
-            reader.readAsArrayBuffer(file);
+            reader.readAsDataURL(file);
         }
     };
 

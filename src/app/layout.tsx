@@ -41,9 +41,6 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
-        {/* Preload critical splash screen images to prevent hydration mismatch */}
-        <link rel="preload" href="https://placehold.co/150x150/FFFFFF/9D2536?text=PNB+One" as="image" fetchPriority="high" />
-        <link rel="preload" href="https://placehold.co/250x31/FFFFFF/9D2536?text=Punjab+National+Bank" as="image" fetchPriority="high" />
       </head>
       <body className="font-body antialiased">
         <div className="max-w-md mx-auto bg-background">

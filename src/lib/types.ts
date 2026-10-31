@@ -138,6 +138,11 @@ export interface AppSettings {
   iconAssets?: IconAssets;
   pnbOneLogo: string;
   pnbBanner: string;
+  /** Reference splash artwork; stored as data URLs so JSON backups carry every logo. */
+  splashJustOneAppAsset?: string;
+  splashPnbLogoAsset?: string;
+  splashBankWordmarkAsset?: string;
+  splashPciDssAsset?: string;
   carouselBanners: CarouselBanner[];
   pdfPassword?: string;
   /** Local prototype-only credentials; not bank authentication. */
