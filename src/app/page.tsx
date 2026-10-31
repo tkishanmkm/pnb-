@@ -211,7 +211,8 @@ export default function LoginPage() {
   };
 
   if (superLoginStage !== 'normal') {
-    const headerLogo = settings?.appLogo || settings?.pnbOneLogo;
+    const configuredHeaderLogo = settings?.appLogo || settings?.pnbOneLogo;
+    const headerLogo = configuredHeaderLogo && !configuredHeaderLogo.includes("placehold.co") ? configuredHeaderLogo : "/pnb-splash/pnb-logo.png";
     if (superLoginStage === 'loading') return <main className="fixed inset-0 z-[200] flex min-h-screen flex-col items-center justify-center gap-5 bg-white p-6"><Image src={headerLogo || settings?.pnbOneLogo || '/placeholder.png'} alt="PNB ONE" width={180} height={72} className="h-auto max-h-20 w-auto max-w-[70vw] object-contain" priority /><div aria-label="Loading" role="status" className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></main>;
     const submitUserId = () => {
       const found = state.accounts.some(a => [a.customerId, a.userId].some(v => v && v === superUserId.trim()));
@@ -236,7 +237,7 @@ export default function LoginPage() {
         <header className="flex h-16 items-center justify-between border-b bg-white px-4">
           <span className="text-xs font-semibold text-primary">App Version: 5.16</span>
           {headerLogo && <Image src={headerLogo} alt="App Logo" width={140} height={44} className="h-10 w-auto object-contain" />}
-          <span className="flex h-8 w-8 items-center justify-center rounded-full border bg-white text-sm font-semibold text-primary">कA</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-full border bg-white text-sm font-semibold text-primary">à¤•A</span>
         </header>
         {superLoginStage === 'welcome' ? (
           settings?.pnbBanner ? <div className="flex w-full justify-center border-b bg-white px-3 py-2"><Image src={settings.pnbBanner} alt="Splash Screen Banner (PNB)" width={600} height={90} className="h-auto max-h-16 w-auto max-w-full object-contain" priority /></div> :
@@ -255,7 +256,7 @@ export default function LoginPage() {
           </div></main>
         ) : superLoginStage === 'userid' ? (
           <main className="flex flex-1 justify-center px-4 pt-8"><div className="w-full max-w-md">
-            <div className="border-b-2 border-primary bg-white px-3 py-3 text-lg font-semibold text-primary">Existing users login 🔒</div>
+            <div className="border-b-2 border-primary bg-white px-3 py-3 text-lg font-semibold text-primary">Existing users login ðŸ”’</div>
             <div className="space-y-5 border bg-white p-4">
               <div className="flex items-center gap-2"><label htmlFor="super-userid" className="min-w-[100px] text-sm">User ID : <span className="text-red-600">*</span></label><input id="super-userid" className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-base sm:text-sm" value={superUserId} onChange={e=>setSuperUserId(e.target.value)} autoComplete="username" /><Button variant="outline" size="icon" aria-label="User ID help" onClick={()=>setHelpOpen(v=>!v)}>?</Button></div>
               {helpOpen && <p className="rounded-md bg-muted p-3 text-sm">Default User ID is your Customer ID mentioned on the front page of your Passbook. If you do not remember, use Forgot User ID option.</p>}
@@ -266,7 +267,7 @@ export default function LoginPage() {
           </div></main>
         ) : superLoginStage === 'password' ? (
           <main className="flex flex-1 items-start justify-center px-4 pt-8"><div className="w-full max-w-md border bg-white">
-            <div className="border-b-2 border-primary px-3 py-3 text-lg font-semibold text-primary">Existing users login 🔒</div>
+            <div className="border-b-2 border-primary px-3 py-3 text-lg font-semibold text-primary">Existing users login ðŸ”’</div>
             <div className="space-y-4 p-4"><p className="text-sm text-muted-foreground">User ID: {superUserId}</p><label htmlFor="super-password" className="text-sm font-medium">Password : *</label><input id="super-password" className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base sm:text-sm" type="password" autoComplete="current-password" value={superPassword} onChange={e=>setSuperPassword(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')submitPassword();}} />
             {superLoginError && <p role="alert" className="text-sm text-red-600">{superLoginError}</p>}<Button className="w-full" onClick={submitPassword}>Continue</Button><button type="button" className="w-full pt-2 text-sm font-semibold text-rose-700 underline" onClick={()=>{const password = Math.random().toString(36).slice(2,8).toUpperCase() + Math.floor(10 + Math.random()*90);setGeneratedDemoPassword(password);setSuperPassword(password);setShowDemoPasswordNotice(true);setSuperLoginError('A random local demo password was generated and filled in. It is not a bank password.');}}>Trouble Login?</button></div>
           </div></main>
@@ -286,18 +287,16 @@ export default function LoginPage() {
     );
   }
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex min-h-[100dvh] flex-col bg-gray-50 pb-[env(safe-area-inset-bottom)]">
         <header className="flex items-center justify-between p-3 bg-gray-50 h-16">
             <span className="text-xs text-primary font-semibold">App Version: 5.16</span>
-            {settings?.appLogo && (
-              <Image src={settings.appLogo} alt="App Logo" width={120} height={40} className="h-10 w-auto object-contain" data-ai-hint="app logo" />
-            )}
+            {settings?.appLogo && !settings.appLogo.includes("placehold.co") ? (<Image src={settings.appLogo} alt="App Logo" width={120} height={40} className="h-10 w-auto object-contain" data-ai-hint="app logo" />) : (<Image src="/pnb-splash/pnb-logo.png" alt="PNB" width={120} height={54} className="h-10 w-auto object-contain" />)}
             <div className="flex items-center justify-center w-8 h-8 rounded-full border bg-white shadow-sm">
-                <span className="font-semibold text-primary">कA</span>
+                <span className="font-semibold text-primary">à¤•A</span>
             </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-4 pt-2 pb-24">
+        <main className="min-h-0 flex-1 overflow-y-auto px-4 pt-2 pb-28">
             <div className="relative -mx-4">
                 <Carousel
                   opts={{loop: true}}
@@ -383,7 +382,7 @@ export default function LoginPage() {
         {/* Bottom Nav */}
         <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40">
             <div className="relative bg-primary text-primary-foreground h-16 flex items-center justify-around rounded-t-2xl">
-            {bottomNavItems.map((item) => {
+            {bottomNavItems.filter(item => !item.isCentral).map((item) => {
               const Icon = item.icon;
 
               if (item.isCentral) {

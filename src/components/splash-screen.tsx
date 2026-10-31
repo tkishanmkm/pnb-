@@ -8,7 +8,8 @@ import { useAppContext } from "@/hooks/use-app-store";
 export const SplashScreen = () => {
   const { state } = useAppContext();
   const settings = state.settings;
-  const centerLogo = settings.pnbOneLogo || settings.appLogo;
+  const configuredLogo = settings.pnbOneLogo || settings.appLogo;
+  const centerLogo = configuredLogo && !configuredLogo.includes("placehold.co") ? configuredLogo : "/pnb-splash/pnb-one-mark.png";
 
   return (
     <main aria-label="PNB ONE loading" className="pnb-reference-splash fixed inset-0 z-[200] overflow-hidden">
